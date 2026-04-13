@@ -1426,7 +1426,7 @@ async function saveResume() {
     body: JSON.stringify({ title, branch: state.branch, mos: state.mos, resume_type: state.activeTab, content })
   });
   if (resp.ok) { toast('Resume saved!', 'success'); }
-  else { toast('Save failed.', 'error'); }
+  else { const err = await resp.json().catch(() => ({})); toast(err.error || 'Save failed.', 'error'); }
 }
 
 async function loadSavedResumes() {

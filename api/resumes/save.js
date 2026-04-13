@@ -13,6 +13,15 @@ export default async function handler(req, res) {
   if (!userResp.ok) return res.status(401).json({ error: 'Invalid token', detail: userBody });
   const { id: user_id } = userBody;
 
+  // Enforce 5 resume limit
+  const countResp = await fetch(
+    `${process.env.SUPABASE_URL}/rest/v1/resumes?user_id=eq.${user_id}&select=id`,
+    { headers: { 'Authorization': `Bearer ${process.env.SUPABASE_SERVICE_ROLE_KEY}`, 'apikey': process.env.SUPABASE_SERVICE_ROLE_KEY, 'Prefer': 'count=exact' } }
+  );
+  const countHeader = countResp.headers.get('content-range');
+  const count = countHeader ? parseInt(countHeader.split('/')[1]) : 0;
+  if (count >= 5) return res.status(400).json({ error: 'Resume limit reached. Delete one to save a new one.' });
+
   const { title, branch, mos, resume_type, content } = req.body;
 
   const insertResp = await fetch(`${process.env.SUPABASE_URL}/rest/v1/resumes`, {
