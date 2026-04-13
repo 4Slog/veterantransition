@@ -30,8 +30,6 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;b
 .logo-text{font-size:1.5rem;font-weight:800;letter-spacing:1px}
 .logo-sub{font-size:0.75rem;color:rgba(255,255,255,0.65);margin-top:1px}
 .header-actions{display:flex;gap:0.75rem;align-items:center}
-.demo-btn{background:rgba(201,168,76,0.2);border:1px solid var(--gold);color:var(--gold);padding:0.45rem 1rem;border-radius:var(--radius);cursor:pointer;font-size:0.85rem;font-weight:600}
-.demo-btn:hover{background:rgba(201,168,76,0.35)}
 .settings-btn{background:rgba(255,255,255,0.1);border:1px solid rgba(255,255,255,0.25);color:white;padding:0.45rem 1rem;border-radius:var(--radius);cursor:pointer;font-size:0.85rem}
 .settings-btn:hover{background:rgba(255,255,255,0.2)}
 
@@ -170,8 +168,6 @@ textarea.form-input{resize:vertical;min-height:100px}
 .toast.success{background:var(--success)}
 @keyframes slideIn{from{transform:translateX(110%);opacity:0}to{transform:translateX(0);opacity:1}}
 
-/* Demo notice */
-.demo-notice{background:#fef9ec;border:1px solid var(--gold);border-radius:var(--radius);padding:0.65rem 1rem;font-size:0.85rem;color:#744210;display:flex;align-items:center;gap:0.5rem;margin-bottom:1.25rem}
 
 /* Skill tags */
 .skill-tags{display:flex;flex-wrap:wrap;gap:0.45rem;margin-top:0.5rem}
@@ -186,7 +182,7 @@ textarea.form-input{resize:vertical;min-height:100px}
 
 /* Print */
 @media print{
-  .header,.progress-nav,.btn-row,.generate-btn-row,.resume-type-btns,.job-section,.settings-btn,.demo-btn,.drawer,.drawer-overlay,.toast-wrap{display:none!important}
+  .header,.progress-nav,.btn-row,.generate-btn-row,.resume-type-btns,.job-section,.settings-btn,.drawer,.drawer-overlay,.toast-wrap{display:none!important}
   .resume-output{border:none;padding:0;min-height:unset}
   body{background:white}
   .card{box-shadow:none;padding:0}
@@ -263,7 +259,6 @@ select.form-input{appearance:none;background-image:url("data:image/svg+xml,%3Csv
       <span id="userEmail"></span>
       <button class="logout-btn" onclick="signOut()">Sign Out</button>
     </div>
-    <button class="demo-btn" onclick="loadDemo()">⚡ Load Demo (92A)</button>
     <button class="settings-btn" onclick="openSettings()">⚙ Settings</button>
   </div>
 </div>
@@ -398,6 +393,7 @@ select.form-input{appearance:none;background-image:url("data:image/svg+xml,%3Csv
       <div class="form-group">
         <label class="form-label">Security Clearance</label>
         <select class="form-input" id="clearanceInput">
+          <option value="">Extract from documents...</option>
           <option value="None">None / Not Applicable</option>
           <option value="Confidential">Confidential</option>
           <option value="Secret">Secret</option>
@@ -409,6 +405,7 @@ select.form-input{appearance:none;background-image:url("data:image/svg+xml,%3Csv
       <div class="form-group">
         <label class="form-label">Highest Education</label>
         <select class="form-input" id="educationInput">
+          <option value="">Extract from documents...</option>
           <option value="High School">High School Diploma / GED</option>
           <option value="Some College">Some College</option>
           <option value="Associate's">Associate's Degree</option>
@@ -884,7 +881,9 @@ async function analyzeCareerTracks() {
   const allDocs = state.documents.map(d => `=== ${d.name} ===\n${d.text}`).join('\n\n');
   const combinedText = [allDocs, pasteText].filter(Boolean).join('\n\n');
 
-  if (state.mosData) { goStep(4); return; }
+  // If documents were uploaded, reset mosData so Claude re-analyzes with full content
+  if (combinedText && state.mosData) { goStep(4); return; }
+  if (!combinedText && state.mosData) { goStep(4); return; }
 
   const mosInput = document.getElementById('mosInput')?.value.trim() || '';
 
@@ -979,12 +978,12 @@ function selectTrack(i) {
 // RESUME GENERATION (Claude API)
 // ============================================================
 async function generateResume(type) {
-  state.rank      = document.getElementById('rankInput').value;
-  state.years     = document.getElementById('yearsInput').value;
-  state.clearance = document.getElementById('clearanceInput').value;
-  state.education = document.getElementById('educationInput').value;
-  state.location  = document.getElementById('locationInput').value;
-  state.additional = document.getElementById('additionalInput').value;
+  state.rank      = document.getElementById('rankInput').value || '';
+  state.years     = document.getElementById('yearsInput').value || '';
+  state.clearance = document.getElementById('clearanceInput').value || '';
+  state.education = document.getElementById('educationInput').value || '';
+  state.location  = document.getElementById('locationInput').value || '';
+  state.additional = document.getElementById('additionalInput').value || '';
 
   const contact = state.contact;
   const track = state.selectedTrack || { title: 'Federal Employment', gs: 'GS', desc: '' };
@@ -1177,13 +1176,13 @@ If clearance is SECRET or above, also include:
 VETERAN BACKGROUND:
 Branch: ${state.branch ? state.branch.charAt(0).toUpperCase() + state.branch.slice(1) : 'Extract from document'}
 ${BRANCH_LABELS[state.branch] || 'MOS'}: ${mos || 'Extract from document'}
-Rank at Separation: ${state.rank || 'Extract from document'}
-Years of Service: ${state.years || 'Extract from document'}
-Security Clearance: ${state.clearance || 'Extract from document'}
-Education: ${state.education || 'Extract from document'}
+Rank at Separation: ${state.rank || 'Extract from document — use exact rank found in documents'}
+Years of Service: ${state.years || 'Extract from document — calculate from BASD or first assignment date to separation date'}
+Security Clearance: ${state.clearance || 'Extract from document — use exact clearance level stated'}
+Education: ${state.education || 'Extract from document — list all degrees, schools, and graduation years found'}
 Target Location: ${state.location || 'Open / Flexible'}
 Target Career Track: ${track.title} (${track.gs})
-Additional Information / Achievements: ${state.additional || 'None provided'}
+Additional Information / Achievements: ${state.additional || 'Extract awards, certifications, and notable achievements from documents'}
 
 ${docText ? `SERVICE DOCUMENTS (extract any missing background fields from this):\n${docText.slice(0, isMaster ? 8000 : 4000)}` : ''}
 ${docText ? 'NOTE: Use the service documents as the primary source for dates, positions, accomplishments, and metrics. Extract real details rather than using placeholders where possible.' : ''}
@@ -1359,22 +1358,57 @@ function copyResume() {
 async function extractText(file) {
   const ext = file.name.split('.').pop().toLowerCase();
   if (ext === 'txt') return file.text();
-  if (ext === 'pdf') {
-    pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
-    const buf = await file.arrayBuffer();
-    const pdf = await pdfjsLib.getDocument({ data: buf }).promise;
-    let text = '';
-    for (let i = 1; i <= pdf.numPages; i++) {
-      const page = await pdf.getPage(i);
-      const content = await page.getTextContent();
-      text += content.items.map(s => s.str).join(' ') + '\n';
-    }
-    return text;
-  }
   if (ext === 'docx' || ext === 'doc') {
     const buf = await file.arrayBuffer();
     const result = await mammoth.extractRawText({ arrayBuffer: buf });
     return result.value;
+  }
+  if (ext === 'pdf') {
+    pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+    const buf = await file.arrayBuffer();
+    const pdf = await pdfjsLib.getDocument({ data: buf }).promise;
+
+    // Try native text extraction first (works on non-scanned PDFs)
+    let nativeText = '';
+    for (let i = 1; i <= pdf.numPages; i++) {
+      const page = await pdf.getPage(i);
+      const content = await page.getTextContent();
+      nativeText += content.items.map(s => s.str).join(' ') + '\n';
+    }
+
+    // If we got substantial text, use it
+    if (nativeText.replace(/\s/g, '').length > 300) return nativeText;
+
+    // Scanned PDF — use Claude Vision to extract text
+    toast(`Scanning ${file.name} with AI vision...`, '');
+    const MAX_PAGES = 15;
+    const pageCount = Math.min(pdf.numPages, MAX_PAGES);
+    const BATCH = 5;
+    let allText = '';
+
+    for (let start = 1; start <= pageCount; start += BATCH) {
+      const end = Math.min(start + BATCH - 1, pageCount);
+      const images = [];
+      for (let i = start; i <= end; i++) {
+        const page = await pdf.getPage(i);
+        const viewport = page.getViewport({ scale: 1.5 });
+        const canvas = document.createElement('canvas');
+        canvas.width = viewport.width;
+        canvas.height = viewport.height;
+        await page.render({ canvasContext: canvas.getContext('2d'), viewport }).promise;
+        images.push(canvas.toDataURL('image/jpeg', 0.82).split(',')[1]);
+      }
+      const resp = await fetch('/api/extract-pdf', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ pages: images })
+      });
+      if (resp.ok) {
+        const data = await resp.json();
+        allText += `\n--- Pages ${start}–${end} ---\n` + data.text;
+      }
+    }
+    return allText;
   }
   throw new Error('Unsupported file type');
 }
@@ -1466,21 +1500,6 @@ function saveContact() {
 // ============================================================
 // DEMO MODE (92A)
 // ============================================================
-function loadDemo() {
-  selectBranch('army');
-  goStep(2);
-  setTimeout(() => {
-    document.getElementById('mosInput').value = '92A';
-    detectMOS('92A');
-    document.getElementById('rankInput').value = 'E-6 (SSG/PO1/GySgt/TSgt)';
-    document.getElementById('yearsInput').value = '10';
-    document.getElementById('clearanceInput').value = 'Secret';
-    document.getElementById('educationInput').value = "Associate's";
-    document.getElementById('locationInput').value = 'Atlanta, GA';
-    document.getElementById('additionalInput').value = 'Managed $2.1M equipment inventory with 100% accountability. Led 8-person supply team during 9-month OIF deployment. Certified forklift operator. Army Achievement Medal (x3), Army Commendation Medal. Completed Unit Supply Course. SARSS-1 and PBUSE certified. Maintained 99.8% supply fill rate for 450-person battalion.';
-    toast('Demo loaded: Army 92A — Staff Sergeant, 10 years.', 'success');
-  }, 100);
-}
 
 // ============================================================
 // TOAST
