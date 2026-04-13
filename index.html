@@ -329,6 +329,9 @@ select.form-input{appearance:none;background-image:url("data:image/svg+xml,%3Csv
     <div class="btn-row">
       <button class="btn btn-primary" id="step1Next" onclick="goStep(2)" disabled>Continue →</button>
     </div>
+    <div style="text-align:center;margin-top:1rem;font-size:0.85rem;color:var(--text-light)">
+      Have a DD-214 or evaluation report? <a onclick="goStep(3)" style="color:var(--navy-light);cursor:pointer;font-weight:600">Upload it to auto-fill →</a>
+    </div>
   </div>
 </div>
 
@@ -801,7 +804,7 @@ function init() {
 // STEP NAVIGATION
 // ============================================================
 function goStep(n) {
-  if (n === 2 && !state.branch) { toast('Please select a branch first.','error'); return; }
+  if (n === 2 && !state.branch && !state.documentText) { toast('Please select a branch first, or upload a document to skip.','error'); return; }
   state.step = n;
   renderStep(n);
   if (n === 4) {
@@ -873,17 +876,39 @@ function getDefaultTracks() {
 // CAREER TRACK ANALYSIS (O*NET + Static)
 // ============================================================
 async function analyzeCareerTracks() {
-  // Collect doc text
   state.documentText = document.getElementById('pasteText').value;
 
-  // Try to get additional context from O*NET (may fail due to CORS)
-  if (state.mosData) {
+  if (state.mosData) { goStep(4); return; }
+
+  const mosInput = document.getElementById('mosInput')?.value.trim() || '';
+
+  // If we have a document but no MOS, use Claude to extract career tracks
+  if (!mosInput && state.documentText) {
+    document.getElementById('tracksLoading').classList.remove('hidden');
+    try {
+      const resp = await fetch('/api/chat', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({
+          model: 'claude-haiku-4-5-20251001',
+          max_tokens: 800,
+          messages: [{ role: 'user', content: `You are a military career counselor. Based on this service document, identify the veteran's branch, MOS/rating, and top 4 civilian career tracks.\n\nDocument:\n${state.documentText.slice(0, 3000)}\n\nRespond with valid JSON only:\n{"branch":"army|navy|marines|airforce|spaceforce|coastguard","mos":"code","mos_title":"title","tracks":[{"title":"Civilian Job Title","gs":"GS-XXXX","match":95,"desc":"One sentence why this fits.","employers":"Key employers"}]}` }]
+        })
+      });
+      if (resp.ok) {
+        const data = await resp.json();
+        const raw = data.content[0].text;
+        const json = JSON.parse(raw.slice(raw.indexOf('{'), raw.lastIndexOf('}') + 1));
+        if (json.branch) state.branch = json.branch;
+        if (json.mos) state.mos = json.mos;
+        state.mosData = { title: json.mos_title || json.mos, skills: [], tracks: json.tracks || [] };
+      }
+    } catch(e) { console.error('Claude track extraction failed', e); }
+    document.getElementById('tracksLoading').classList.add('hidden');
     goStep(4);
     return;
   }
 
-  // No MOS found — try O*NET search
-  const mosInput = document.getElementById('mosInput').value.trim();
   if (!mosInput) { goStep(4); return; }
 
   document.getElementById('tracksLoading').classList.remove('hidden');
@@ -893,7 +918,6 @@ async function analyzeCareerTracks() {
     if (resp.ok) {
       const data = await resp.json();
       if (data.career && data.career.length > 0) {
-        // Map O*NET results to our track format
         state.mosData = {
           title: mosInput,
           skills: [],
@@ -907,9 +931,7 @@ async function analyzeCareerTracks() {
         };
       }
     }
-  } catch(e) {
-    // CORS blocked — use static data fallback (expected on local file)
-  }
+  } catch(e) { /* use static fallback */ }
   document.getElementById('tracksLoading').classList.add('hidden');
   goStep(4);
 }
@@ -1055,17 +1077,18 @@ STRICT RULES:
   const prompt = `You are an expert military-to-civilian resume writer. Generate a complete, ready-to-submit ${isFederal ? 'federal USAJOBS' : 'private sector'} resume following the exact template and rules below.
 
 VETERAN BACKGROUND:
-Branch: ${state.branch ? state.branch.charAt(0).toUpperCase() + state.branch.slice(1) : 'U.S. Military'}
-${BRANCH_LABELS[state.branch] || 'MOS'}: ${mos}
-Rank at Separation: ${state.rank}
-Years of Service: ${state.years}
-Security Clearance: ${state.clearance}
-Education: ${state.education}
+Branch: ${state.branch ? state.branch.charAt(0).toUpperCase() + state.branch.slice(1) : 'Extract from document'}
+${BRANCH_LABELS[state.branch] || 'MOS'}: ${mos || 'Extract from document'}
+Rank at Separation: ${state.rank || 'Extract from document'}
+Years of Service: ${state.years || 'Extract from document'}
+Security Clearance: ${state.clearance || 'Extract from document'}
+Education: ${state.education || 'Extract from document'}
 Target Location: ${state.location || 'Open / Flexible'}
 Target Career Track: ${track.title} (${track.gs})
 Additional Information / Achievements: ${state.additional || 'None provided'}
 
-${docText ? `SERVICE DOCUMENTS / ADDITIONAL CONTEXT:\n${docText.slice(0, 3000)}` : ''}
+${docText ? `SERVICE DOCUMENTS (extract any missing background fields from this):\n${docText.slice(0, 3000)}` : ''}
+${docText ? 'NOTE: Use the service document as the primary source for dates, positions, accomplishments, and metrics. Extract real details rather than using placeholders where possible.' : ''}
 
 ${isFederal ? federalTemplate : privateTemplate}
 
