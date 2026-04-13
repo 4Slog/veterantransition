@@ -1,0 +1,1329 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>RankToRole — Military to Civilian Resume Builder</title>
+<style>
+:root {
+  --navy: #1a3a5c;
+  --gold: #c9a84c;
+  --navy-light: #2a5080;
+  --bg: #f0f4f8;
+  --card: #ffffff;
+  --text: #2d3748;
+  --text-light: #718096;
+  --border: #e2e8f0;
+  --success: #276749;
+  --error: #c53030;
+  --radius: 8px;
+  --shadow: 0 2px 8px rgba(0,0,0,0.1);
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;background:var(--bg);color:var(--text);min-height:100vh}
+.header{background:var(--navy);color:white;padding:1rem 2rem;display:flex;align-items:center;justify-content:space-between;box-shadow:0 2px 12px rgba(0,0,0,0.25)}
+.header-left{display:flex;align-items:center;gap:0.75rem}
+.logo-star{font-size:1.8rem;color:var(--gold)}
+.logo-text{font-size:1.5rem;font-weight:800;letter-spacing:1px}
+.logo-sub{font-size:0.75rem;color:rgba(255,255,255,0.65);margin-top:1px}
+.header-actions{display:flex;gap:0.75rem;align-items:center}
+.demo-btn{background:rgba(201,168,76,0.2);border:1px solid var(--gold);color:var(--gold);padding:0.45rem 1rem;border-radius:var(--radius);cursor:pointer;font-size:0.85rem;font-weight:600}
+.demo-btn:hover{background:rgba(201,168,76,0.35)}
+.settings-btn{background:rgba(255,255,255,0.1);border:1px solid rgba(255,255,255,0.25);color:white;padding:0.45rem 1rem;border-radius:var(--radius);cursor:pointer;font-size:0.85rem}
+.settings-btn:hover{background:rgba(255,255,255,0.2)}
+
+/* Progress */
+.progress-nav{background:var(--navy-light);padding:0.6rem 2rem;display:flex;align-items:center;gap:0;overflow-x:auto}
+.step-item{display:flex;align-items:center;gap:0.4rem;color:rgba(255,255,255,0.45);font-size:0.82rem;white-space:nowrap;cursor:default}
+.step-item.clickable{cursor:pointer}
+.step-item.clickable:hover{color:rgba(255,255,255,0.75)}
+.step-item.active{color:var(--gold);font-weight:700}
+.step-item.done{color:rgba(255,255,255,0.75)}
+.step-num{width:22px;height:22px;border-radius:50%;background:rgba(255,255,255,0.15);display:flex;align-items:center;justify-content:center;font-size:0.72rem;font-weight:700}
+.step-item.active .step-num{background:var(--gold);color:var(--navy)}
+.step-item.done .step-num{background:#48bb78;color:white}
+.step-arrow{color:rgba(255,255,255,0.25);margin:0 0.5rem;font-size:0.75rem}
+
+/* Layout */
+.main{max-width:860px;margin:2rem auto;padding:0 1rem}
+.card{background:var(--card);border-radius:var(--radius);box-shadow:var(--shadow);padding:2rem;margin-bottom:1.5rem}
+.card-title{font-size:1.25rem;font-weight:800;color:var(--navy);margin-bottom:0.35rem}
+.card-sub{color:var(--text-light);font-size:0.9rem;margin-bottom:1.75rem}
+
+/* Branch grid */
+.branch-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:1rem}
+@media(max-width:600px){.branch-grid{grid-template-columns:repeat(2,1fr)}}
+.branch-card{border:2px solid var(--border);border-radius:var(--radius);padding:1.25rem;text-align:center;cursor:pointer;transition:all 0.2s}
+.branch-card:hover{border-color:var(--navy-light);background:#f7fafc}
+.branch-card.selected{border-color:var(--gold);background:#fef9ec}
+.branch-icon{font-size:2.2rem;margin-bottom:0.5rem}
+.branch-name{font-weight:700;color:var(--navy);font-size:0.9rem}
+.branch-mos{font-size:0.72rem;color:var(--text-light);margin-top:0.2rem}
+
+/* Form */
+.form-group{margin-bottom:1.25rem}
+.form-label{display:block;font-size:0.88rem;font-weight:600;color:var(--text);margin-bottom:0.4rem}
+.form-input{width:100%;padding:0.6rem 0.85rem;border:1.5px solid var(--border);border-radius:var(--radius);font-size:0.93rem;color:var(--text);transition:border 0.2s;background:white;font-family:inherit}
+.form-input:focus{outline:none;border-color:var(--navy)}
+textarea.form-input{resize:vertical;min-height:100px}
+.form-row{display:grid;grid-template-columns:1fr 1fr;gap:1rem}
+@media(max-width:580px){.form-row{grid-template-columns:1fr}}
+.form-hint{font-size:0.77rem;color:var(--text-light);margin-top:0.3rem}
+.mos-detected{background:#ebf8f0;border:1px solid #68d391;border-radius:var(--radius);padding:0.65rem 1rem;font-size:0.88rem;color:#276749;margin-top:0.5rem;display:none}
+
+/* Buttons */
+.btn{padding:0.6rem 1.4rem;border-radius:var(--radius);font-size:0.92rem;font-weight:600;cursor:pointer;border:none;transition:all 0.2s;font-family:inherit}
+.btn-primary{background:var(--navy);color:white}
+.btn-primary:hover{background:var(--navy-light)}
+.btn-primary:disabled{background:#a0aec0;cursor:not-allowed}
+.btn-gold{background:var(--gold);color:var(--navy)}
+.btn-gold:hover{background:#b8963f}
+.btn-outline{background:transparent;border:2px solid var(--navy);color:var(--navy)}
+.btn-outline:hover{background:var(--navy);color:white}
+.btn-sm{padding:0.38rem 0.9rem;font-size:0.83rem}
+.btn-danger{background:#fc8181;color:white}
+.btn-danger:hover{background:#f56565}
+.btn-row{display:flex;gap:0.75rem;align-items:center;flex-wrap:wrap;margin-top:1.5rem}
+
+/* Track cards */
+.track-list{display:grid;gap:1rem}
+.track-card{border:2px solid var(--border);border-radius:var(--radius);padding:1.25rem;cursor:pointer;transition:all 0.2s}
+.track-card:hover{border-color:var(--navy-light)}
+.track-card.selected{border-color:var(--gold);background:#fef9ec}
+.track-head{display:flex;justify-content:space-between;align-items:flex-start;gap:1rem}
+.track-title{font-weight:700;color:var(--navy);font-size:1rem}
+.track-series{background:var(--navy);color:white;padding:0.18rem 0.55rem;border-radius:4px;font-size:0.72rem;font-weight:700;white-space:nowrap;flex-shrink:0}
+.track-desc{color:var(--text-light);font-size:0.87rem;margin-top:0.45rem}
+.track-employers{font-size:0.8rem;color:var(--text-light);margin-top:0.4rem}
+.track-employers span{font-weight:600;color:var(--text)}
+.match-row{display:flex;align-items:center;gap:0.75rem;margin-top:0.75rem}
+.match-bar{flex:1;height:5px;background:var(--border);border-radius:3px;overflow:hidden}
+.match-fill{height:100%;background:var(--gold);border-radius:3px;transition:width 0.5s}
+.match-pct{font-size:0.78rem;font-weight:700;color:var(--text-light);min-width:32px}
+
+/* Upload */
+.upload-zone{border:2px dashed var(--border);border-radius:var(--radius);padding:2rem;text-align:center;cursor:pointer;transition:all 0.2s;color:var(--text-light)}
+.upload-zone:hover,.upload-zone.drag{border-color:var(--navy);background:#f7fafc;color:var(--navy)}
+.upload-zone input{display:none}
+.upload-icon{font-size:2rem;margin-bottom:0.5rem}
+.file-info{background:#f7fafc;border:1px solid var(--border);border-radius:var(--radius);padding:0.65rem 1rem;display:flex;align-items:center;justify-content:space-between;margin-top:0.75rem}
+.file-name{font-size:0.88rem;font-weight:600}
+.file-clear{background:none;border:none;color:var(--text-light);cursor:pointer;font-size:1rem;padding:0}
+.file-clear:hover{color:var(--error)}
+
+/* Resume output */
+.resume-type-btns{display:flex;gap:0.75rem;margin-bottom:1.5rem;flex-wrap:wrap}
+.resume-type-btn{padding:0.55rem 1.25rem;border-radius:var(--radius);font-size:0.9rem;font-weight:600;cursor:pointer;border:2px solid var(--border);background:white;color:var(--text-light);transition:all 0.2s;font-family:inherit}
+.resume-type-btn.active{border-color:var(--navy);color:var(--navy);background:#eef2f7}
+.resume-output{background:white;border:1.5px solid var(--border);border-radius:var(--radius);padding:2rem;min-height:500px;font-family:'Georgia',serif;font-size:0.92rem;line-height:1.75;white-space:pre-wrap;outline:none;color:var(--text)}
+.resume-output:focus{border-color:var(--navy)}
+.generate-btn-row{display:flex;gap:0.75rem;margin-bottom:1rem;flex-wrap:wrap;align-items:center}
+
+/* Job listings */
+.job-section{margin-top:1.5rem}
+.job-section-title{font-size:1rem;font-weight:700;color:var(--navy);margin-bottom:0.75rem}
+.job-list{display:grid;gap:0.75rem}
+.job-card{border:1.5px solid var(--border);border-radius:var(--radius);padding:1rem;transition:border 0.2s}
+.job-card:hover{border-color:var(--navy-light)}
+.job-title{font-weight:700;color:var(--navy);font-size:0.93rem}
+.job-agency{color:var(--text-light);font-size:0.83rem;margin-top:0.15rem}
+.job-meta{display:flex;gap:0.75rem;margin-top:0.5rem;flex-wrap:wrap}
+.job-tag{background:#eef2f7;color:var(--text);padding:0.15rem 0.55rem;border-radius:3px;font-size:0.78rem}
+.job-link{font-size:0.82rem;color:var(--navy-light);text-decoration:none;font-weight:600;margin-top:0.5rem;display:inline-block}
+.job-link:hover{text-decoration:underline}
+.jobs-fallback{background:#fef9ec;border:1px solid var(--gold);border-radius:var(--radius);padding:1rem;font-size:0.88rem;color:#744210;margin-top:0.75rem}
+
+/* Settings drawer */
+.drawer-overlay{position:fixed;inset:0;background:rgba(0,0,0,0.45);z-index:100;opacity:0;pointer-events:none;transition:opacity 0.3s}
+.drawer-overlay.open{opacity:1;pointer-events:auto}
+.drawer{position:fixed;top:0;right:-420px;width:400px;height:100vh;background:white;z-index:101;transition:right 0.3s;overflow-y:auto;box-shadow:-4px 0 24px rgba(0,0,0,0.18)}
+.drawer.open{right:0}
+.drawer-header{background:var(--navy);color:white;padding:1.25rem 1.5rem;display:flex;justify-content:space-between;align-items:center}
+.drawer-title{font-size:1.05rem;font-weight:700}
+.drawer-close{background:none;border:none;color:white;font-size:1.4rem;cursor:pointer;line-height:1;padding:0.2rem}
+.drawer-body{padding:1.5rem}
+.drawer-section{margin-bottom:2rem}
+.drawer-section-label{font-size:0.75rem;font-weight:700;text-transform:uppercase;letter-spacing:0.8px;color:var(--text-light);margin-bottom:0.75rem}
+.key-row{display:flex;align-items:center;gap:0.5rem;margin-bottom:0.4rem}
+.key-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0}
+.key-dot.ok{background:#48bb78}
+.key-dot.missing{background:#fc8181}
+.key-label{font-size:0.83rem;font-weight:600;color:var(--text)}
+
+/* Loading */
+.loading-row{display:flex;align-items:center;gap:0.75rem;color:var(--text-light);font-size:0.88rem;padding:0.5rem 0}
+.spinner{width:18px;height:18px;border:2.5px solid var(--border);border-top-color:var(--navy);border-radius:50%;animation:spin 0.75s linear infinite;flex-shrink:0}
+@keyframes spin{to{transform:rotate(360deg)}}
+
+/* Toast */
+.toast-wrap{position:fixed;bottom:1.5rem;right:1.5rem;z-index:200;display:flex;flex-direction:column;gap:0.6rem}
+.toast{background:var(--navy);color:white;padding:0.7rem 1.1rem;border-radius:var(--radius);font-size:0.88rem;box-shadow:0 4px 12px rgba(0,0,0,0.2);animation:slideIn 0.3s ease;max-width:320px}
+.toast.error{background:var(--error)}
+.toast.success{background:var(--success)}
+@keyframes slideIn{from{transform:translateX(110%);opacity:0}to{transform:translateX(0);opacity:1}}
+
+/* Demo notice */
+.demo-notice{background:#fef9ec;border:1px solid var(--gold);border-radius:var(--radius);padding:0.65rem 1rem;font-size:0.85rem;color:#744210;display:flex;align-items:center;gap:0.5rem;margin-bottom:1.25rem}
+
+/* Skill tags */
+.skill-tags{display:flex;flex-wrap:wrap;gap:0.45rem;margin-top:0.5rem}
+.skill-tag{background:#eef2f7;color:var(--navy);padding:0.22rem 0.65rem;border-radius:20px;font-size:0.8rem;font-weight:500}
+
+/* Section steps */
+.section-num{font-size:0.75rem;font-weight:700;text-transform:uppercase;letter-spacing:0.8px;color:var(--text-light);margin-bottom:0.5rem}
+
+/* Credit */
+.onet-credit{font-size:0.72rem;color:var(--text-light);text-align:right;margin-top:0.5rem}
+.onet-credit a{color:var(--navy-light)}
+
+/* Print */
+@media print{
+  .header,.progress-nav,.btn-row,.generate-btn-row,.resume-type-btns,.job-section,.settings-btn,.demo-btn,.drawer,.drawer-overlay,.toast-wrap{display:none!important}
+  .resume-output{border:none;padding:0;min-height:unset}
+  body{background:white}
+  .card{box-shadow:none;padding:0}
+}
+
+.hidden{display:none!important}
+select.form-input{appearance:none;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%23718096' d='M6 8L1 3h10z'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 0.85rem center;padding-right:2rem}
+</style>
+</head>
+<body>
+
+<!-- HEADER -->
+<div class="header">
+  <div class="header-left">
+    <div class="logo-star">★</div>
+    <div>
+      <div class="logo-text">RankToRole</div>
+      <div class="logo-sub">Military → Civilian Resume Builder</div>
+    </div>
+  </div>
+  <div class="header-actions">
+    <button class="demo-btn" onclick="loadDemo()">⚡ Load Demo (92A)</button>
+    <button class="settings-btn" onclick="openSettings()">⚙ Settings</button>
+  </div>
+</div>
+
+<!-- PROGRESS -->
+<div class="progress-nav" id="progressNav">
+  <div class="step-item active" id="step-nav-1">
+    <div class="step-num">1</div>Branch
+  </div>
+  <div class="step-arrow">›</div>
+  <div class="step-item" id="step-nav-2">
+    <div class="step-num">2</div>Service Info
+  </div>
+  <div class="step-arrow">›</div>
+  <div class="step-item" id="step-nav-3">
+    <div class="step-num">3</div>Documents
+  </div>
+  <div class="step-arrow">›</div>
+  <div class="step-item" id="step-nav-4">
+    <div class="step-num">4</div>Career Tracks
+  </div>
+  <div class="step-arrow">›</div>
+  <div class="step-item" id="step-nav-5">
+    <div class="step-num">5</div>Resume
+  </div>
+</div>
+
+<div class="main">
+
+<!-- STEP 1: BRANCH -->
+<div id="step1">
+  <div class="card">
+    <div class="section-num">Step 1 of 5</div>
+    <div class="card-title">Select Your Branch of Service</div>
+    <div class="card-sub">Choose the branch you served in — we'll tailor the MOS/AFSC/Rating lookup accordingly.</div>
+    <div class="branch-grid">
+      <div class="branch-card" id="branch-army" onclick="selectBranch('army')">
+        <div class="branch-icon">🪖</div>
+        <div class="branch-name">Army</div>
+        <div class="branch-mos">MOS Code</div>
+      </div>
+      <div class="branch-card" id="branch-navy" onclick="selectBranch('navy')">
+        <div class="branch-icon">⚓</div>
+        <div class="branch-name">Navy</div>
+        <div class="branch-mos">Rating</div>
+      </div>
+      <div class="branch-card" id="branch-marines" onclick="selectBranch('marines')">
+        <div class="branch-icon">🦅</div>
+        <div class="branch-name">Marine Corps</div>
+        <div class="branch-mos">MOS Code</div>
+      </div>
+      <div class="branch-card" id="branch-airforce" onclick="selectBranch('airforce')">
+        <div class="branch-icon">✈️</div>
+        <div class="branch-name">Air Force</div>
+        <div class="branch-mos">AFSC</div>
+      </div>
+      <div class="branch-card" id="branch-spaceforce" onclick="selectBranch('spaceforce')">
+        <div class="branch-icon">🛸</div>
+        <div class="branch-name">Space Force</div>
+        <div class="branch-mos">SFSC</div>
+      </div>
+      <div class="branch-card" id="branch-coastguard" onclick="selectBranch('coastguard')">
+        <div class="branch-icon">🚢</div>
+        <div class="branch-name">Coast Guard</div>
+        <div class="branch-mos">Rating</div>
+      </div>
+    </div>
+    <div class="btn-row">
+      <button class="btn btn-primary" id="step1Next" onclick="goStep(2)" disabled>Continue →</button>
+    </div>
+  </div>
+</div>
+
+<!-- STEP 2: SERVICE INFO -->
+<div id="step2" class="hidden">
+  <div class="card">
+    <div class="section-num">Step 2 of 5</div>
+    <div class="card-title">Your Service Information</div>
+    <div class="card-sub">Tell us about your military background. The more detail you provide, the stronger your resume.</div>
+
+    <div class="form-group">
+      <label class="form-label" id="mosLabel">MOS Code</label>
+      <input class="form-input" id="mosInput" type="text" placeholder="e.g. 92A" oninput="detectMOS(this.value)" style="text-transform:uppercase">
+      <div class="mos-detected" id="mosDetected"></div>
+      <div class="form-hint">Enter your primary MOS, AFSC, or Rating. We'll identify your civilian-equivalent skills.</div>
+    </div>
+
+    <div class="form-row">
+      <div class="form-group">
+        <label class="form-label">Rank at Separation</label>
+        <select class="form-input" id="rankInput">
+          <option value="">Select rank...</option>
+          <optgroup label="Enlisted">
+            <option>E-1 (PVT/SR/PFC/AB)</option>
+            <option>E-2</option>
+            <option>E-3</option>
+            <option>E-4 (SPC/CPL/LCpl/A1C)</option>
+            <option>E-5 (SGT/P01/Cpl/SSgt)</option>
+            <option>E-6 (SSG/PO1/GySgt/TSgt)</option>
+            <option>E-7 (SFC/CPO/MSgt/MSgt)</option>
+            <option>E-8 (MSG/SCPO/1stSgt/SMSgt)</option>
+            <option>E-9 (SGM/CSM/MCPO/SgtMaj/CMSgt)</option>
+          </optgroup>
+          <optgroup label="Warrant Officer">
+            <option>W-1 (WO1)</option>
+            <option>W-2 (CW2)</option>
+            <option>W-3 (CW3)</option>
+            <option>W-4 (CW4)</option>
+            <option>W-5 (CW5)</option>
+          </optgroup>
+          <optgroup label="Officer">
+            <option>O-1 (2LT/ENS/2ndLt/2Lt)</option>
+            <option>O-2 (1LT/LTJG/1stLt/1Lt)</option>
+            <option>O-3 (CPT/LT/Capt/Capt)</option>
+            <option>O-4 (MAJ/LCDR/Maj/Maj)</option>
+            <option>O-5 (LTC/CDR/LtCol/LtCol)</option>
+            <option>O-6 (COL/CAPT/Col/Col)</option>
+            <option>O-7+ (General Officer/Flag Officer)</option>
+          </optgroup>
+        </select>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Years of Service</label>
+        <input class="form-input" id="yearsInput" type="number" min="1" max="40" placeholder="e.g. 10">
+      </div>
+    </div>
+
+    <div class="form-row">
+      <div class="form-group">
+        <label class="form-label">Security Clearance</label>
+        <select class="form-input" id="clearanceInput">
+          <option value="None">None / Not Applicable</option>
+          <option value="Confidential">Confidential</option>
+          <option value="Secret">Secret</option>
+          <option value="Top Secret">Top Secret (TS)</option>
+          <option value="TS/SCI">Top Secret / SCI</option>
+          <option value="TS/SCI + Poly">TS/SCI with Polygraph</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Highest Education</label>
+        <select class="form-input" id="educationInput">
+          <option value="High School">High School Diploma / GED</option>
+          <option value="Some College">Some College</option>
+          <option value="Associate's">Associate's Degree</option>
+          <option value="Bachelor's">Bachelor's Degree</option>
+          <option value="Master's">Master's Degree</option>
+          <option value="Doctorate">Doctorate / Professional Degree</option>
+        </select>
+      </div>
+    </div>
+
+    <div class="form-group">
+      <label class="form-label">Target Location <span style="font-weight:400;color:var(--text-light)">(optional)</span></label>
+      <input class="form-input" id="locationInput" type="text" placeholder="e.g. Atlanta, GA or Remote">
+    </div>
+
+    <div class="form-group">
+      <label class="form-label">Additional Skills, Certifications, or Achievements <span style="font-weight:400;color:var(--text-light)">(optional)</span></label>
+      <textarea class="form-input" id="additionalInput" placeholder="e.g. APFT scores, SHARP training, OSHA 10, forklift certified, deployed to Afghanistan 2018-2019, managed $2M equipment inventory, led 12-person team..."></textarea>
+      <div class="form-hint">Include any notable achievements, awards (MSM, AAM), deployments, special qualifications, or civilian certifications.</div>
+    </div>
+
+    <div class="btn-row">
+      <button class="btn btn-outline btn-sm" onclick="goStep(1)">← Back</button>
+      <button class="btn btn-primary" onclick="goStep(3)">Continue →</button>
+    </div>
+  </div>
+</div>
+
+<!-- STEP 3: DOCUMENTS -->
+<div id="step3" class="hidden">
+  <div class="card">
+    <div class="section-num">Step 3 of 5 — Optional</div>
+    <div class="card-title">Upload Service Documents</div>
+    <div class="card-sub">Upload your DD-214, NCOERs, OERs, or any evaluation to extract additional detail. Or paste text directly. This step is optional — skip if not available.</div>
+
+    <div class="upload-zone" id="uploadZone" onclick="document.getElementById('fileInput').click()" ondragover="dragOver(event)" ondrop="dropFile(event)" ondragleave="dragLeave(event)">
+      <input type="file" id="fileInput" accept=".txt,.pdf,.doc,.docx" onchange="handleFile(this.files[0])">
+      <div class="upload-icon">📄</div>
+      <div style="font-weight:600;margin-bottom:0.25rem">Click to upload or drag & drop</div>
+      <div style="font-size:0.82rem">Supports .txt, .pdf, .doc, .docx · Max 5MB</div>
+    </div>
+    <div class="file-info hidden" id="fileInfo">
+      <span class="file-name" id="fileName"></span>
+      <button class="file-clear" onclick="clearFile()" title="Remove file">✕</button>
+    </div>
+
+    <div style="margin:1.25rem 0;text-align:center;color:var(--text-light);font-size:0.85rem;font-weight:600">— OR —</div>
+
+    <div class="form-group">
+      <label class="form-label">Paste Document Text</label>
+      <textarea class="form-input" id="pasteText" style="min-height:140px" placeholder="Paste text from your DD-214, evaluation reports, award citations, or performance reviews here..."></textarea>
+    </div>
+
+    <div class="btn-row">
+      <button class="btn btn-outline btn-sm" onclick="goStep(2)">← Back</button>
+      <button class="btn btn-primary" onclick="analyzeCareerTracks()">Analyze My Career Tracks →</button>
+      <button class="btn btn-outline btn-sm" onclick="goStep(4)" style="margin-left:auto">Skip this step</button>
+    </div>
+  </div>
+</div>
+
+<!-- STEP 4: CAREER TRACKS -->
+<div id="step4" class="hidden">
+  <div class="card">
+    <div class="section-num">Step 4 of 5</div>
+    <div class="card-title">Your Civilian Career Tracks</div>
+    <div class="card-sub">Based on your MOS and service history, here are your top civilian career matches. Select one to build your resume around.</div>
+
+    <div id="tracksLoading" class="loading-row hidden">
+      <div class="spinner"></div>
+      <span>Analyzing your O*NET occupational crosswalk...</span>
+    </div>
+
+    <div class="track-list" id="trackList"></div>
+
+    <div class="onet-credit">This site incorporates information from <a href="https://www.onetonline.org/" target="_blank">O*NET Web Services</a> by USDOL/ETA. O*NET® is a trademark of USDOL/ETA.</div>
+
+    <div class="btn-row">
+      <button class="btn btn-outline btn-sm" onclick="goStep(3)">← Back</button>
+      <button class="btn btn-primary" id="step4Next" onclick="goStep(5)" disabled>Build My Resume →</button>
+    </div>
+  </div>
+</div>
+
+<!-- STEP 5: RESUME -->
+<div id="step5" class="hidden">
+  <div class="card">
+    <div class="section-num">Step 5 of 5</div>
+    <div class="card-title">Your Resume</div>
+    <div class="card-sub">Generate both a federal (USAJOBS) and private sector resume. Click to edit any section directly.</div>
+
+    <div class="generate-btn-row">
+      <button class="btn btn-gold" onclick="generateResume('federal')" id="genFedBtn">⚡ Generate Federal Resume</button>
+      <button class="btn btn-primary" onclick="generateResume('private')" id="genPrivBtn">⚡ Generate Private Sector Resume</button>
+      <div class="loading-row hidden" id="resumeLoading">
+        <div class="spinner"></div>
+        <span id="resumeLoadingText">Generating resume...</span>
+      </div>
+    </div>
+
+    <div class="resume-type-btns">
+      <button class="resume-type-btn active" id="tabFed" onclick="showResumeTab('federal')">📋 Federal (USAJOBS — 2 page max)</button>
+      <button class="resume-type-btn" id="tabPriv" onclick="showResumeTab('private')">💼 Private Sector</button>
+    </div>
+
+    <div class="resume-output" id="resumeOutput" contenteditable="true">Click "Generate" above to build your resume. You can edit this area directly after generation.</div>
+
+    <div class="btn-row">
+      <button class="btn btn-outline btn-sm" onclick="goStep(4)">← Back</button>
+      <button class="btn btn-primary" onclick="exportPDF()">🖨 Print / Save PDF</button>
+      <button class="btn btn-outline" onclick="exportText()">⬇ Download .txt</button>
+      <button class="btn btn-outline" onclick="copyResume()">📋 Copy to Clipboard</button>
+    </div>
+  </div>
+
+  <!-- Job Listings -->
+  <div class="card" id="jobsCard">
+    <div class="card-title">Matching Federal Job Openings</div>
+    <div class="card-sub">Live listings from USAJOBS matching your target career track.</div>
+    <div id="jobsLoading" class="loading-row hidden">
+      <div class="spinner"></div>
+      <span>Searching USAJOBS...</span>
+    </div>
+    <div id="jobsList"></div>
+  </div>
+</div>
+
+</div><!-- /main -->
+
+<!-- SETTINGS DRAWER -->
+<div class="drawer-overlay" id="drawerOverlay" onclick="closeSettings()"></div>
+<div class="drawer" id="settingsDrawer">
+  <div class="drawer-header">
+    <div class="drawer-title">⚙ Settings</div>
+    <button class="drawer-close" onclick="closeSettings()">✕</button>
+  </div>
+  <div class="drawer-body">
+    <div class="drawer-section">
+      <div class="drawer-section-label">API Keys</div>
+      <div class="key-row">
+        <div class="key-dot" id="dotClaude"></div>
+        <div class="key-label">Claude (Anthropic)</div>
+      </div>
+      <input class="form-input" id="keyClaudeInput" type="password" placeholder="sk-ant-..." style="margin-bottom:0.75rem;font-size:0.85rem">
+      <div class="key-row">
+        <div class="key-dot" id="dotOnet"></div>
+        <div class="key-label">O*NET Web Services</div>
+      </div>
+      <input class="form-input" id="keyOnetInput" type="password" placeholder="O*NET API key" style="margin-bottom:0.75rem;font-size:0.85rem">
+      <div class="key-row">
+        <div class="key-dot" id="dotUsajobs"></div>
+        <div class="key-label">USAJOBS</div>
+      </div>
+      <input class="form-input" id="keyUsajobsInput" type="password" placeholder="USAJOBS Authorization-Key" style="margin-bottom:1rem;font-size:0.85rem">
+      <button class="btn btn-primary btn-sm" onclick="saveSettings()" style="width:100%">Save API Keys</button>
+    </div>
+
+    <div class="drawer-section">
+      <div class="drawer-section-label">Contact Info (saved for resume)</div>
+      <div class="form-group">
+        <input class="form-input" id="contactName" type="text" placeholder="Full Name" style="margin-bottom:0.6rem;font-size:0.88rem">
+        <input class="form-input" id="contactEmail" type="email" placeholder="Email" style="margin-bottom:0.6rem;font-size:0.88rem">
+        <input class="form-input" id="contactPhone" type="tel" placeholder="Phone" style="margin-bottom:0.6rem;font-size:0.88rem">
+        <input class="form-input" id="contactCity" type="text" placeholder="City, State" style="font-size:0.88rem">
+      </div>
+      <button class="btn btn-outline btn-sm" onclick="saveContact()" style="width:100%">Save Contact Info</button>
+    </div>
+
+    <div class="drawer-section">
+      <div class="drawer-section-label">About</div>
+      <div style="font-size:0.82rem;color:var(--text-light);line-height:1.6">
+        RankToRole uses Claude AI for resume generation, O*NET for occupational crosswalk data, and USAJOBS for live federal job listings.<br><br>
+        All data stays in your browser. No information is stored on any server.<br><br>
+        <a href="https://www.onetonline.org/" target="_blank" style="color:var(--navy-light)">O*NET OnLine</a> ·
+        <a href="https://www.usajobs.gov/" target="_blank" style="color:var(--navy-light)">USAJOBS</a>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- TOAST CONTAINER -->
+<div class="toast-wrap" id="toastWrap"></div>
+
+<script>
+// ============================================================
+// CONFIG & STATE
+// ============================================================
+const DEFAULTS = {
+  claude:   '',
+  onet:     'JFm6x-eZnf0-LtXUw-axyXh',
+  usajobs:  'zV8RTQ/Z2Pvo+eii/aInpwrJWejfOJagzwypBCo4zUA=',
+  email:    'sowu.paul@gmail.com'
+};
+
+let state = {
+  branch: null,
+  mos: '',
+  mosData: null,
+  rank: '',
+  years: '',
+  clearance: 'None',
+  education: "High School",
+  location: '',
+  additional: '',
+  documentText: '',
+  selectedTrack: null,
+  resumes: { federal: '', private: '' },
+  activeTab: 'federal',
+  step: 1,
+  contact: {}
+};
+
+function getKeys() {
+  return {
+    claude:   localStorage.getItem('ranktorole_claude')   || DEFAULTS.claude,
+    onet:     localStorage.getItem('ranktorole_onet')     || DEFAULTS.onet,
+    usajobs:  localStorage.getItem('ranktorole_usajobs')  || DEFAULTS.usajobs,
+    email:    localStorage.getItem('ranktorole_email')    || DEFAULTS.email
+  };
+}
+
+// ============================================================
+// MOS DATABASE
+// ============================================================
+const MOS_DB = {
+  army: {
+    '11B': { title:'Infantryman', skills:['leadership','team management','physical security','tactical operations','mission planning','risk assessment'], tracks:[
+      {title:'Security Specialist',gs:'GS-0080',match:88,desc:'Physical security and force protection roles leverage your combat and security operations background.',employers:'DOD, DHS, State Dept, VA Police'},
+      {title:'Law Enforcement Officer',gs:'GS-0083',match:82,desc:'Federal law enforcement agencies value infantry discipline and tactical training.',employers:'FBI, CBP, ATF, USMS'},
+      {title:'Training Instructor',gs:'GS-1712',match:78,desc:'Military training expertise translates directly to federal training and instruction roles.',employers:'Army, National Guard, FLETC'}
+    ]},
+    '25B': { title:'IT Specialist', skills:['network administration','cybersecurity','help desk','systems admin','hardware/software troubleshooting','Active Directory'], tracks:[
+      {title:'IT Specialist (Systems Admin)',gs:'GS-2210',match:96,desc:'Direct crosswalk — your MOS maps nearly 1:1 to the federal IT Specialist series.',employers:'DOD, DHS, VA, NSA, DISA'},
+      {title:'Cybersecurity Analyst',gs:'GS-2210',match:88,desc:'Security+ and cyber experience from 25B is highly valued in federal cyber roles.',employers:'CYBERCOM, NSA, DHS CISA'},
+      {title:'Network Administrator',gs:'GS-0391',match:84,desc:'Network design and administration skills transfer directly.',employers:'Any federal agency with IT infrastructure'}
+    ]},
+    '35F': { title:'Intelligence Analyst', skills:['intelligence analysis','data analysis','geospatial intelligence','threat assessment','report writing','SIGINT','HUMINT','all-source analysis'], tracks:[
+      {title:'Intelligence Analyst',gs:'GS-0132',match:98,desc:'Near-perfect crosswalk. Federal intelligence agencies actively recruit 35F veterans.',employers:'DIA, CIA, NSA, NGA, FBI'},
+      {title:'Criminal Investigator',gs:'GS-1811',match:78,desc:'Analytical and investigative skills apply to federal law enforcement investigations.',employers:'FBI, DEA, ATF, ICE'},
+      {title:'Operations Research Analyst',gs:'GS-0343',match:72,desc:'Quantitative and analytical skills apply to program and policy analysis.',employers:'OSD, CBO, RAND, Booz Allen'}
+    ]},
+    '42A': { title:'Human Resources Specialist', skills:['HR management','personnel records','benefits admin','recruitment','training coordination','IPPS-A'], tracks:[
+      {title:'Human Resources Specialist',gs:'GS-0201',match:97,desc:'Direct MOS-to-GS crosswalk. Federal HR series is the natural destination for 42A veterans.',employers:'OPM, VA, Army, DOD civilian HR'},
+      {title:'Personnel Management Specialist',gs:'GS-0203',match:89,desc:'Records management and personnel action expertise.',employers:'Any large federal agency'},
+      {title:'Benefits Advisor',gs:'GS-0301',match:74,desc:'Transition assistance and benefits administration roles.',employers:'VA, OPM, DOL'}
+    ]},
+    '68W': { title:'Combat Medic Specialist', skills:['emergency medical care','trauma care','patient assessment','medical documentation','pharmacy ops','clinical procedures','TCCC'], tracks:[
+      {title:'Medical Technician / EMT',gs:'GS-0640',match:93,desc:'Combat medic training exceeds civilian EMT requirements. Federal health facilities actively recruit.',employers:'VA Medical Centers, DOD medical, Indian Health Service'},
+      {title:'Practical Nurse',gs:'GS-0620',match:85,desc:'With additional LPN/LVN licensing, combat medic experience provides a strong foundation.',employers:'VA, DOD, Indian Health Service'},
+      {title:'Health Technician',gs:'GS-0647',match:80,desc:'Clinical support roles in federal medical facilities.',employers:'VA, DOD, NIH, CDC'}
+    ]},
+    '74D': { title:'CBRN Specialist', skills:['CBRN defense','hazardous materials','emergency response','decontamination','safety protocols','HAZMAT operations'], tracks:[
+      {title:'Safety & Occupational Health Specialist',gs:'GS-0018',match:87,desc:'CBRN and HAZMAT expertise applies to federal workplace safety programs.',employers:'OSHA, EPA, DOD, VA'},
+      {title:'Emergency Management Specialist',gs:'GS-0089',match:83,desc:'CBRN response experience directly supports FEMA and agency emergency management.',employers:'FEMA, DHS, state emergency management'},
+      {title:'Environmental Protection Specialist',gs:'GS-0028',match:74,desc:'Chemical and hazardous materials expertise supports EPA and environmental compliance.',employers:'EPA, Army Corps of Engineers, DOD'}
+    ]},
+    '88M': { title:'Motor Transport Operator', skills:['vehicle operations','logistics coordination','route planning','cargo management','safety compliance','fleet management'], tracks:[
+      {title:'Transportation Specialist',gs:'GS-2101',match:91,desc:'Direct crosswalk to federal transportation management roles.',employers:'DOT, GSA, Army, DLA, TRANSCOM'},
+      {title:'Logistics Management Specialist',gs:'GS-0346',match:80,desc:'Transportation and cargo experience supports broader logistics management.',employers:'DLA, GSA, Army Materiel Command'},
+      {title:'Motor Vehicle Operator Supervisor',gs:'WG-5703',match:85,desc:'Fleet management and vehicle operations expertise.',employers:'Any large federal installation'}
+    ]},
+    '92A': { title:'Automated Logistical Specialist', skills:['supply chain management','inventory control','property accountability','SARSS operations','PBUSE','warehouse management','requisition processing','logistics planning','property book','materiel management'], tracks:[
+      {title:'Logistics Management Specialist',gs:'GS-0346',match:96,desc:'Your SARSS/PBUSE expertise and supply chain management experience maps directly to this role. Highest-demand GS track for 92A veterans.',employers:'Army Materiel Command, DLA, TRANSCOM, GSA, DHS'},
+      {title:'Supply Technician / Supply Chain Analyst',gs:'GS-2001/2010',match:90,desc:'Inventory management and supply operations experience is directly transferable to federal supply programs.',employers:'DLA, VA, GSA, DOD supply depots'},
+      {title:'Property & Procurement Specialist',gs:'GS-1103',match:83,desc:'Property accountability and equipment management expertise supports federal property and contracting roles.',employers:'GSA, Army, DOD, NASA, any federal agency with significant property'},
+      {title:'Operations Research Analyst',gs:'GS-0343',match:72,desc:'Quantitative supply chain analysis skills apply to program and operations analysis positions.',employers:'OSD, Army Staff, consulting firms (Booz Allen, SAIC, Leidos)'},
+      {title:'Warehouse & Distribution Manager (Private)',gs:'N/A — Private Sector',match:82,desc:'Major logistics companies aggressively recruit veterans with 92A-equivalent experience.',employers:'Amazon, FedEx, UPS, Walmart, Target, Home Depot, Maersk'}
+    ]},
+    '92Y': { title:'Unit Supply Specialist', skills:['supply operations','property accountability','inventory management','hand receipts','PBUSE','equipment accountability','supply room management'], tracks:[
+      {title:'Supply Technician',gs:'GS-2010',match:94,desc:'Direct crosswalk — unit supply operations maps nearly perfectly to federal supply technician roles.',employers:'DLA, Army, VA, GSA'},
+      {title:'Logistics Management Specialist',gs:'GS-0346',match:86,desc:'Property and supply management experience supports broader logistics roles.',employers:'Army Materiel Command, DLA, TRANSCOM'},
+      {title:'Property Management Specialist',gs:'GS-1103',match:82,desc:'Hand receipt and property accountability experience directly transfers.',employers:'GSA, DOD, NASA, any federal agency with significant property'}
+    ]},
+    '31B': { title:'Military Police', skills:['law enforcement','investigation','report writing','emergency response','security operations','detention operations','traffic enforcement','crime scene preservation'], tracks:[
+      {title:'Law Enforcement Officer',gs:'GS-0083',match:96,desc:'Military Police experience is the gold standard for federal law enforcement recruitment.',employers:'CBP, USMS, FBI, BOP, VA Police, Park Police'},
+      {title:'Criminal Investigator',gs:'GS-1811',match:84,desc:'MP investigative experience supports CID and federal criminal investigation roles.',employers:'FBI, ICE, DEA, ATF, CBP'},
+      {title:'Security Specialist',gs:'GS-0080',match:80,desc:'Physical security and force protection expertise.',employers:'DOD, State Dept, DHS, VA'}
+    ]},
+    '91B': { title:'Wheeled Vehicle Mechanic', skills:['vehicle maintenance','diagnostics','mechanical repair','preventive maintenance','TMDE','technical documentation','parts management'], tracks:[
+      {title:'Equipment Specialist',gs:'GS-1670',match:88,desc:'Heavy equipment maintenance and diagnostics experience supports federal maintenance programs.',employers:'Army, Navy, Marine Corps, National Guard, DOT'},
+      {title:'Transportation Specialist',gs:'GS-2101',match:78,desc:'Vehicle systems knowledge supports transportation management.',employers:'GSA, DOT, Army'},
+      {title:'Automotive Mechanic (Private Sector)',gs:'N/A',match:85,desc:'Master certified mechanics command premium salaries in the private sector.',employers:'Fleet companies, dealerships, manufacturing'}
+    ]}
+  },
+  navy: {
+    'LS': { title:'Logistics Specialist', skills:['supply management','inventory control','requisition processing','warehouse operations','financial records','HAZMAT handling'], tracks:[
+      {title:'Supply Technician',gs:'GS-2010',match:94,desc:'Navy LS experience maps directly to federal supply technician roles.',employers:'DLA, VA, GSA, Navy'},
+      {title:'Logistics Management Specialist',gs:'GS-0346',match:87,desc:'Ship-based logistics experience is highly valued in federal supply chain roles.',employers:'DLA, NAVSUP, DOD'},
+      {title:'Warehouse Manager (Private)',gs:'N/A',match:82,desc:'Strong demand for LS veterans in commercial logistics.',employers:'Amazon, Maersk, CROWLEY, private logistics'}
+    ]},
+    'IT': { title:'Information Systems Technician', skills:['network administration','cybersecurity','satellite communications','IT support','systems maintenance','crypto systems'], tracks:[
+      {title:'IT Specialist',gs:'GS-2210',match:97,desc:'Navy IT rating maps almost perfectly to federal IT Specialist series.',employers:'DOD, DHS, NSA, DISA, any federal agency'},
+      {title:'Communications Specialist',gs:'GS-0391',match:86,desc:'Satellite and communications systems experience is valuable in federal telecom roles.',employers:'DISA, NSA, State Dept'},
+      {title:'Cybersecurity Analyst',gs:'GS-2210',match:88,desc:'Navy cyber training and clearance experience.',employers:'NSA, CYBERCOM, DHS CISA'}
+    ]},
+    'HM': { title:'Hospital Corpsman', skills:['emergency medical care','patient care','clinical procedures','pharmacy','medical records','surgical assistance','dive medicine','field medicine'], tracks:[
+      {title:'Medical Technician',gs:'GS-0640',match:95,desc:'Corpsman training is equivalent to or exceeds civilian EMT/paramedic certification.',employers:'VA Medical Centers, DOD, Indian Health Service, NIH'},
+      {title:'Practical Nurse',gs:'GS-0620',match:84,desc:'With LPN licensure, corpsman clinical experience is immediately applicable.',employers:'VA, DOD, Indian Health Service'},
+      {title:'Physician Assistant (with education)',gs:'GS-0603',match:70,desc:'Many corpsmen pursue PA school — federal PA demand is high.',employers:'VA, DOD, Indian Health Service'}
+    ]},
+    'MA': { title:'Master-at-Arms', skills:['law enforcement','security operations','investigations','force protection','corrections','port security'], tracks:[
+      {title:'Law Enforcement Officer',gs:'GS-0083',match:95,desc:'MA rating is direct law enforcement experience recognized across federal agencies.',employers:'CBP, USMS, VA Police, FBI, BOP'},
+      {title:'Security Specialist',gs:'GS-0080',match:88,desc:'Force protection and physical security expertise.',employers:'DOD, State Dept, DHS'},
+      {title:'Criminal Investigator',gs:'GS-1811',match:78,desc:'Investigative experience and clearance support federal criminal investigation roles.',employers:'NCIS, FBI, ICE, DEA'}
+    ]},
+    'IS': { title:'Intelligence Specialist', skills:['intelligence analysis','threat assessment','OSINT','briefing preparation','imagery analysis','all-source analysis','HUMINT'], tracks:[
+      {title:'Intelligence Analyst',gs:'GS-0132',match:97,desc:'IS rating maps directly to federal intelligence analyst positions.',employers:'DIA, ONI, CIA, NSA, NGA, FBI'},
+      {title:'Operations Research Analyst',gs:'GS-0343',match:74,desc:'Analytical skills apply to policy and program analysis.',employers:'OSD, Navy Staff, consulting firms'},
+      {title:'Foreign Affairs Specialist',gs:'GS-0130',match:70,desc:'Intelligence background with area expertise supports State Dept and foreign affairs roles.',employers:'State Dept, USAID, DIA'}
+    ]},
+    'BM': { title:"Boatswain's Mate", skills:['seamanship','vessel operations','navigation','deck operations','search and rescue','small boat operations','leadership'], tracks:[
+      {title:'Marine Inspector',gs:'GS-1801',match:82,desc:'Deep knowledge of vessel operations and maritime safety.',employers:'USCG, MARAD, CBP'},
+      {title:'Harbor Operations Specialist',gs:'GS-2150',match:78,desc:'Port and waterway operations expertise.',employers:'Army Corps of Engineers, CBP, port authorities'},
+      {title:'Small Vessel Operator / Maritime Manager',gs:'N/A',match:80,desc:'Commercial maritime industry strongly values Navy seamanship.',employers:'MSC, NOAA, commercial shipping, tug/barge companies'}
+    ]}
+  },
+  marines: {
+    '0311': { title:'Rifleman', skills:['leadership','team management','tactical operations','physical security','training and instruction','decision making under pressure'], tracks:[
+      {title:'Law Enforcement Officer',gs:'GS-0083',match:86,desc:'Marine infantry discipline and training is highly valued in federal law enforcement.',employers:'CBP, USMS, FBI, VA Police, USSS'},
+      {title:'Security Specialist',gs:'GS-0080',match:82,desc:'Tactical and force protection background.',employers:'DOD, State Dept, DHS'},
+      {title:'Training Instructor',gs:'GS-1712',match:80,desc:'Infantry training methodology applies to federal training programs.',employers:'FLETC, Army, Marine Corps, law enforcement agencies'}
+    ]},
+    '0651': { title:'Network Administrator', skills:['network administration','cybersecurity','MAGTF communications','IT support','systems maintenance'], tracks:[
+      {title:'IT Specialist',gs:'GS-2210',match:96,desc:'Marine Corps network operations maps directly to federal IT roles.',employers:'DOD, DHS, DISA, any federal agency'},
+      {title:'Cybersecurity Analyst',gs:'GS-2210',match:88,desc:'Marine cyber operations experience is in high demand.',employers:'CYBERCOM, NSA, DHS CISA'},
+      {title:'Network Engineer (Private)',gs:'N/A',match:90,desc:'Cisco, CompTIA, and network certifications command premium salaries.',employers:'Any tech company, defense contractor, telecom'}
+    ]},
+    '3051': { title:'Warehouse Clerk', skills:['supply chain','inventory management','warehouse operations','property accountability','logistics coordination'], tracks:[
+      {title:'Supply Technician',gs:'GS-2010',match:92,desc:'Warehouse and supply operations experience directly maps to federal supply roles.',employers:'DLA, VA, GSA, DOD supply depots'},
+      {title:'Logistics Management Specialist',gs:'GS-0346',match:83,desc:'Supply chain and warehousing experience supports broader logistics management.',employers:'DLA, NAVSUP, GSA, Army Materiel Command'},
+      {title:'Warehouse Manager (Private)',gs:'N/A',match:86,desc:'Strong demand for experienced warehouse professionals.',employers:'Amazon, FedEx, UPS, Walmart, Home Depot'}
+    ]},
+    '6046': { title:'Aircraft Maintenance Technician', skills:['aircraft maintenance','avionics','troubleshooting','quality assurance','technical documentation','FAA standards'], tracks:[
+      {title:'Aviation Mechanic / Inspector',gs:'GS-2181',match:93,desc:'FAA A&P certification and military aircraft experience is premium in federal aviation.',employers:'FAA, NASA, Army, Navy, Air Force depot maintenance'},
+      {title:'Equipment Specialist (Aviation)',gs:'GS-1670',match:84,desc:'Technical maintenance expertise applies to equipment specialist roles.',employers:'DOD aviation commands, NASA, FAA'},
+      {title:'Aviation Maintenance Manager (Private)',gs:'N/A',match:90,desc:'Airlines and aviation companies aggressively recruit military-trained mechanics.',employers:'American, Delta, Southwest, Lockheed, Boeing, Northrop'}
+    ]}
+  },
+  airforce: {
+    '1C6': { title:'Space Systems Operations', skills:['satellite operations','space systems','mission operations','data analysis','systems monitoring','orbital mechanics'], tracks:[
+      {title:'Space Operations Specialist',gs:'GS-0391',match:94,desc:'Space Force and civilian agencies need experienced space operations personnel.',employers:'Space Force, NRO, NGA, NASA, SpaceX, Boeing'},
+      {title:'Systems Analyst',gs:'GS-0301',match:80,desc:'Systems monitoring and mission operations experience.',employers:'DOD space commands, NASA, FAA'},
+      {title:'Satellite Communications Specialist',gs:'GS-0391',match:88,desc:'Satellite operations expertise for government and commercial programs.',employers:'SATCOM agencies, NSA, DISA, commercial satellite operators'}
+    ]},
+    '2T1': { title:'Vehicle Operations', skills:['vehicle fleet management','transportation coordination','safety compliance','logistics','vehicle maintenance oversight'], tracks:[
+      {title:'Transportation Specialist',gs:'GS-2101',match:92,desc:'Air Force vehicle operations maps directly to federal transportation management.',employers:'DOT, GSA, Air Force, Army, DLA'},
+      {title:'Fleet Management Specialist',gs:'GS-2130',match:85,desc:'Fleet management and vehicle safety experience.',employers:'GSA Fleet, DOD, large federal agencies'},
+      {title:'Transportation Manager (Private)',gs:'N/A',match:82,desc:'Commercial fleet and logistics management.',employers:'Trucking companies, logistics firms, Amazon, FedEx'}
+    ]},
+    '3D1': { title:'Client Systems Technician', skills:['IT support','network administration','cybersecurity','hardware/software','help desk','Active Directory','imaging'], tracks:[
+      {title:'IT Specialist (Customer Support)',gs:'GS-2210',match:95,desc:'Air Force 3D1 experience is a direct match for federal IT specialist roles.',employers:'Any federal agency — IT is universal'},
+      {title:'Cybersecurity Analyst',gs:'GS-2210',match:84,desc:'Security+ and cyber awareness training supports cybersecurity roles.',employers:'DHS CISA, NSA, DOD CIO offices'},
+      {title:'Systems Administrator (Private)',gs:'N/A',match:92,desc:'IT certifications and experience command strong salaries in the private sector.',employers:'Any company — IT is the most portable skill in the workforce'}
+    ]},
+    '3S0': { title:'Personnel Specialist', skills:['HR management','personnel records','benefits administration','workforce planning','training coordination','MyFSS'], tracks:[
+      {title:'Human Resources Specialist',gs:'GS-0201',match:97,desc:'Air Force personnel specialist maps almost perfectly to federal HR roles.',employers:'OPM, Air Force, DOD civilian HR, any federal agency'},
+      {title:'Benefits Advisor',gs:'GS-0301',match:83,desc:'Benefits and transition assistance expertise.',employers:'VA, OPM, DOL, TSP Board'},
+      {title:'HR Business Partner (Private)',gs:'N/A',match:88,desc:'Military HR experience is valued in corporate environments.',employers:'Large employers in any industry'}
+    ]},
+    '6F0': { title:'Financial Management', skills:['budget analysis','financial reporting','accounting','procurement','audit compliance','GAAP','DEAMS'], tracks:[
+      {title:'Budget Analyst',gs:'GS-0560',match:94,desc:'Military financial management experience translates directly to federal budget analysis.',employers:'OMB, Treasury, DOD, any federal agency with budget authority'},
+      {title:'Financial Specialist',gs:'GS-0501',match:90,desc:'Financial reporting and accounting expertise.',employers:'Treasury, DFAs, OMB, DOD Finance'},
+      {title:'Contract Specialist',gs:'GS-1102',match:78,desc:'Procurement and contracting experience from financial roles.',employers:'DOD, GSA, NASA, any federal contracting activity'}
+    ]},
+    '1N': { title:'Intelligence Analyst', skills:['intelligence analysis','SIGINT','OSINT','threat assessment','geospatial analysis','mission briefing','all-source intelligence'], tracks:[
+      {title:'Intelligence Analyst',gs:'GS-0132',match:98,desc:'Air Force intelligence specialists are among the most sought-after federal hires.',employers:'NGA, NSA, DIA, CIA, NRO, AF Intel'},
+      {title:'Signals Intelligence Analyst',gs:'GS-0132',match:96,desc:'SIGINT experience is premium in the intelligence community.',employers:'NSA, CSS, DIA, NRO'},
+      {title:'Operations Research Analyst',gs:'GS-0343',match:76,desc:'Analytical rigor and quantitative skills apply to program analysis.',employers:'OSD, Air Force Staff, RAND, CNA'}
+    ]},
+    '4N0': { title:'Aerospace Medical Service', skills:['medical care','patient assessment','medical records','pharmacy','emergency response','flight medicine','aeromedical evacuation'], tracks:[
+      {title:'Medical Technician',gs:'GS-0640',match:93,desc:'Air Force medical technician training exceeds civilian EMT certification.',employers:'VA Medical Centers, DOD, Air Force Installations, NIH'},
+      {title:'Health Technician',gs:'GS-0647',match:84,desc:'Clinical support in federal medical facilities.',employers:'VA, DOD, Indian Health Service, NIH'},
+      {title:'Emergency Medical Technician (Private)',gs:'N/A',match:90,desc:'Strong civilian demand for experienced medical technicians.',employers:'Hospital systems, fire departments, private ambulance companies'}
+    ]}
+  },
+  spaceforce: {
+    '1C6': { title:'Space Systems Operations Specialist', skills:['satellite operations','space systems','mission operations','telemetry','orbital mechanics','space domain awareness'], tracks:[
+      {title:'Space Operations Specialist',gs:'GS-0391',match:96,desc:'Space Force guardians are in extreme demand across government and commercial space.',employers:'NRO, NGA, NASA, NOAA, SpaceX, Boeing, Northrop'},
+      {title:'Systems Engineer (Space)',gs:'GS-0854',match:84,desc:'Systems engineering experience in space operations.',employers:'NASA, Air Force Research Lab, defense contractors'},
+      {title:'Satellite Engineer (Private)',gs:'N/A',match:92,desc:'Commercial space sector is booming — experienced space operators command top salaries.',employers:'SpaceX, Boeing, Northrop Grumman, L3Harris, Raytheon'}
+    ]}
+  },
+  coastguard: {
+    'ME': { title:'Marine Science Technician', skills:['maritime law enforcement','environmental compliance','vessel inspection','search and rescue','HAZMAT response','port security'], tracks:[
+      {title:'Marine Inspector',gs:'GS-1801',match:92,desc:'Coast Guard MST experience is highly valued by federal maritime agencies.',employers:'USCG, MARAD, CBP, EPA'},
+      {title:'Environmental Protection Specialist',gs:'GS-0028',match:84,desc:'Environmental compliance and HAZMAT response expertise.',employers:'EPA, Army Corps of Engineers, NOAA, DOD'},
+      {title:'Emergency Management Specialist',gs:'GS-0089',match:78,desc:'SAR and emergency response experience.',employers:'FEMA, DHS, NOAA, state emergency management'}
+    ]},
+    'IT': { title:'Information Systems Technician', skills:['network administration','communications systems','cybersecurity','IT support','CGDN operations'], tracks:[
+      {title:'IT Specialist',gs:'GS-2210',match:96,desc:'Coast Guard IT technicians are directly qualified for federal IT roles.',employers:'DHS, USCG, any federal agency'},
+      {title:'Communications Specialist',gs:'GS-0391',match:86,desc:'Maritime communications systems experience.',employers:'USCG, Coast Guard Telecommunications'},
+      {title:'Cybersecurity Analyst',gs:'GS-2210',match:84,desc:'Network security experience with federal clearance.',employers:'DHS CISA, USCG Cyber Command'}
+    ]}
+  }
+};
+
+const BRANCH_LABELS = {
+  army: 'MOS', navy: 'Rating', marines: 'MOS',
+  airforce: 'AFSC', spaceforce: 'SFSC', coastguard: 'Rating'
+};
+
+// ============================================================
+// INIT
+// ============================================================
+function init() {
+  const stored = JSON.parse(localStorage.getItem('ranktorole_contact') || '{}');
+  state.contact = stored;
+  updateKeyDots();
+  renderStep(1);
+}
+
+// ============================================================
+// STEP NAVIGATION
+// ============================================================
+function goStep(n) {
+  if (n === 2 && !state.branch) { toast('Please select a branch first.','error'); return; }
+  state.step = n;
+  renderStep(n);
+  if (n === 4) {
+    setTimeout(() => {
+      renderTracks(state.mosData ? state.mosData.tracks : getDefaultTracks());
+    }, 100);
+  }
+  if (n === 5) {
+    searchJobs();
+  }
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
+function renderStep(n) {
+  for (let i = 1; i <= 5; i++) {
+    const el = document.getElementById('step'+i);
+    if (el) el.classList.toggle('hidden', i !== n);
+    const nav = document.getElementById('step-nav-'+i);
+    if (nav) {
+      nav.classList.remove('active','done');
+      if (i === n) nav.classList.add('active');
+      else if (i < n) nav.classList.add('done');
+    }
+  }
+}
+
+// ============================================================
+// BRANCH SELECTION
+// ============================================================
+function selectBranch(branch) {
+  state.branch = branch;
+  document.querySelectorAll('.branch-card').forEach(c => c.classList.remove('selected'));
+  document.getElementById('branch-'+branch).classList.add('selected');
+  document.getElementById('step1Next').disabled = false;
+  const label = document.getElementById('mosLabel');
+  if (label) label.textContent = BRANCH_LABELS[branch] + ' Code';
+  const input = document.getElementById('mosInput');
+  if (input) input.placeholder = branch === 'navy' || branch === 'coastguard' ? 'e.g. LS, IT, HM' : branch === 'airforce' ? 'e.g. 3D1, 6F0' : branch === 'spaceforce' ? 'e.g. 1C6' : 'e.g. 92A, 25B';
+}
+
+// ============================================================
+// MOS DETECTION
+// ============================================================
+function detectMOS(val) {
+  const code = val.trim().toUpperCase();
+  state.mos = code;
+  const db = MOS_DB[state.branch] || {};
+  const found = db[code];
+  const el = document.getElementById('mosDetected');
+  if (found) {
+    state.mosData = found;
+    el.style.display = 'block';
+    el.innerHTML = `<strong>${code} — ${found.title}</strong><div class="skill-tags" style="margin-top:0.4rem">${found.skills.map(s=>`<span class="skill-tag">${s}</span>`).join('')}</div>`;
+  } else {
+    state.mosData = null;
+    el.style.display = 'none';
+  }
+}
+
+function getDefaultTracks() {
+  return [
+    {title:'Operations Analyst',gs:'GS-0301',match:70,desc:'General operations and program management for veterans with diverse backgrounds.',employers:'Any federal agency'},
+    {title:'Program Specialist',gs:'GS-0301',match:68,desc:'Administrative and program support leveraging military organizational skills.',employers:'VA, DOD, DHS, any federal agency'},
+    {title:'Logistics Specialist',gs:'GS-0346',match:65,desc:'Supply chain and logistics management using military planning experience.',employers:'DLA, GSA, Army Materiel Command'}
+  ];
+}
+
+// ============================================================
+// CAREER TRACK ANALYSIS (O*NET + Static)
+// ============================================================
+async function analyzeCareerTracks() {
+  // Collect doc text
+  state.documentText = document.getElementById('pasteText').value;
+
+  // Try to get additional context from O*NET (may fail due to CORS)
+  if (state.mosData) {
+    goStep(4);
+    return;
+  }
+
+  // No MOS found — try O*NET search
+  const keys = getKeys();
+  const mosInput = document.getElementById('mosInput').value.trim();
+  if (!mosInput) { goStep(4); return; }
+
+  document.getElementById('tracksLoading').classList.remove('hidden');
+  try {
+    const keyword = encodeURIComponent(mosInput);
+    const resp = await fetch(`https://services.onetcenter.org/ws/mnm/search?keyword=${keyword}&client=ranktorole`, {
+      headers: { 'Authorization': 'Basic ' + btoa(keys.onet + ':developer') }
+    });
+    if (resp.ok) {
+      const data = await resp.json();
+      if (data.career && data.career.length > 0) {
+        // Map O*NET results to our track format
+        state.mosData = {
+          title: mosInput,
+          skills: [],
+          tracks: data.career.slice(0,5).map((c,i) => ({
+            title: c.title,
+            gs: 'See O*NET',
+            match: Math.max(95 - (i * 8), 60),
+            desc: c.tags ? c.tags.join(', ') : 'Identified via O*NET occupational crosswalk.',
+            employers: 'Federal agencies and private sector employers'
+          }))
+        };
+      }
+    }
+  } catch(e) {
+    // CORS blocked — use static data fallback (expected on local file)
+  }
+  document.getElementById('tracksLoading').classList.add('hidden');
+  goStep(4);
+}
+
+// ============================================================
+// RENDER TRACKS
+// ============================================================
+function renderTracks(tracks) {
+  const el = document.getElementById('trackList');
+  if (!tracks || !tracks.length) {
+    el.innerHTML = '<div style="color:var(--text-light);font-size:0.9rem">No career tracks found. Check your MOS code or try entering it in the service info step.</div>';
+    return;
+  }
+  el.innerHTML = tracks.map((t,i) => `
+    <div class="track-card" id="track-${i}" onclick="selectTrack(${i})">
+      <div class="track-head">
+        <div class="track-title">${t.title}</div>
+        <div class="track-series">${t.gs}</div>
+      </div>
+      <div class="track-desc">${t.desc}</div>
+      <div class="track-employers"><span>Common employers:</span> ${t.employers}</div>
+      <div class="match-row">
+        <div class="match-bar"><div class="match-fill" style="width:${t.match}%"></div></div>
+        <div class="match-pct">${t.match}% match</div>
+      </div>
+    </div>
+  `).join('');
+}
+
+function selectTrack(i) {
+  const tracks = state.mosData ? state.mosData.tracks : getDefaultTracks();
+  state.selectedTrack = tracks[i];
+  document.querySelectorAll('.track-card').forEach(c => c.classList.remove('selected'));
+  document.getElementById('track-'+i).classList.add('selected');
+  document.getElementById('step4Next').disabled = false;
+}
+
+// ============================================================
+// RESUME GENERATION (Claude API)
+// ============================================================
+async function generateResume(type) {
+  const keys = getKeys();
+  if (!keys.claude) { toast('Claude API key required. Open Settings.', 'error'); return; }
+
+  state.rank      = document.getElementById('rankInput').value;
+  state.years     = document.getElementById('yearsInput').value;
+  state.clearance = document.getElementById('clearanceInput').value;
+  state.education = document.getElementById('educationInput').value;
+  state.location  = document.getElementById('locationInput').value;
+  state.additional = document.getElementById('additionalInput').value;
+
+  const contact = state.contact;
+  const track = state.selectedTrack || { title: 'Federal Employment', gs: 'GS', desc: '' };
+  const mos = state.mosData ? `${state.mos} — ${state.mosData.title}` : state.mos;
+  const docText = state.documentText || document.getElementById('pasteText').value;
+
+  const isFederal = type === 'federal';
+
+  const federalTemplate = `
+FEDERAL RESUME TEMPLATE (OPM 2-Page Limit — Effective Sept 27, 2025):
+
+SECTION ORDER (mandatory):
+1. CONTACT INFORMATION
+   [FULL NAME]
+   [CITY, STATE] | [PHONE] | [EMAIL]
+   Veterans Preference: [5-Point or 10-Point] | Clearance: ${state.clearance}
+
+2. PROFESSIONAL SUMMARY (3-4 lines max)
+   Keyword-rich summary targeting ${track.title} (${track.gs}). Mirror exact terminology from job announcements. Lead with years of experience and strongest qualification.
+
+3. PROFESSIONAL EXPERIENCE (reverse chronological — most space)
+   For EACH position use this exact format:
+   ─────────────────────────────────────────
+   [JOB TITLE] | [EMPLOYER / UNIT TYPE — no specific unit IDs] | [City, State]
+   [Month Year] – [Month Year] | 40 hours/week | Salary: $[XX,XXX/year or equivalent]
+   Supervisor: [Name, Phone — May Contact: Yes]
+
+   • Action verb + specific task/project + quantified result
+   • Action verb + specific task/project + quantified result
+   • Action verb + specific task/project + quantified result
+   ─────────────────────────────────────────
+
+4. EDUCATION
+   [Degree or Diploma] | [Institution] | [City, State] | [Year]
+
+5. CERTIFICATIONS & TRAINING
+   • [Certification] ([Year])
+
+6. SKILLS (only if space remains on page 2)
+   [Relevant skills as comma-separated list]
+
+STRICT RULES:
+- 2-PAGE MAXIMUM — automatic disqualification if exceeded
+- ~800-900 words total
+- Plain text only — no tables, columns, graphics, or colored text
+- Every experience entry MUST include hours/week, supervisor, salary — HR auto-rejects missing fields
+- Use exact keywords from job announcements (OPM keyword matching is literal)
+- Veterans preference: 5-point for honorable discharge; 10-point for service-connected disability
+- Translate ALL military jargon to civilian equivalents`;
+
+  const privateTemplate = `
+PRIVATE SECTOR RESUME TEMPLATE (ATS-Optimized, Highest Conversion Rate):
+
+SECTION ORDER (proven highest ATS pass + interview conversion):
+1. CONTACT INFORMATION
+   [FULL NAME]
+   [City, State] | [Phone] | [Email] | [LinkedIn URL]
+   (No full street address needed)
+
+2. PROFESSIONAL SUMMARY (2-3 lines — keyword-rich, outcome-focused)
+   [Job Title Target] | [X]+ Years [Industry] Experience
+   [Strongest quantified achievement]. [Key skill 1], [Key skill 2], [Key skill 3].
+
+3. CORE COMPETENCIES / SKILLS (ATS keyword goldmine — place BEFORE experience)
+   List 10-14 most relevant skills as plain comma-separated terms. Mirror exact language from job descriptions.
+   Example: Supply Chain Management, Inventory Control, Warehouse Operations, SAP/ERP Systems, Team Leadership, Process Improvement, OSHA Compliance, Budget Management, Vendor Relations, KPI Reporting
+
+4. PROFESSIONAL EXPERIENCE (reverse chronological — APR bullet formula)
+   For EACH position:
+   ─────────────────────────────────────────
+   [JOB TITLE] | [Company/Organization] | [City, State] | [Month Year – Month Year]
+
+   • [ACTION VERB] + [specific project/challenge] + [quantified result — always include metrics]
+   • [ACTION VERB] + [specific project/challenge] + [quantified result]
+   • [ACTION VERB] + [specific project/challenge] + [quantified result]
+   ─────────────────────────────────────────
+   Use APR Formula: Action (strong verb) → Project (what you did) → Result (measurable outcome)
+   Best action verbs: Led, Managed, Streamlined, Reduced, Increased, Implemented, Designed, Optimized, Directed, Launched, Coordinated, Trained, Delivered
+
+5. EDUCATION
+   [Degree] | [Institution] | [Year]
+
+6. CERTIFICATIONS (only relevant, last 5 years)
+   • [Cert Name] ([Year])
+
+STRICT RULES:
+- 1 PAGE MAXIMUM (2 pages only for 15+ years experience)
+- Zero military jargon — complete civilian translation required
+- Every bullet MUST have a quantified metric (%, $, #, time saved)
+- If exact numbers unknown, use ranges [e.g., ~$1.5M–$2M inventory]
+- Skills section BEFORE experience (boosts ATS keyword match rate by 40-50%)
+- Target 75%+ keyword match with job description
+- No tables, text boxes, or graphics — ATS parsing fails on these
+- Fragment style bullets, not full sentences ("Led team of 8" not "I led a team of 8")`;
+
+  const prompt = `You are an expert military-to-civilian resume writer. Generate a complete, ready-to-submit ${isFederal ? 'federal USAJOBS' : 'private sector'} resume following the exact template and rules below.
+
+VETERAN BACKGROUND:
+Branch: ${state.branch ? state.branch.charAt(0).toUpperCase() + state.branch.slice(1) : 'U.S. Military'}
+${BRANCH_LABELS[state.branch] || 'MOS'}: ${mos}
+Rank at Separation: ${state.rank}
+Years of Service: ${state.years}
+Security Clearance: ${state.clearance}
+Education: ${state.education}
+Target Location: ${state.location || 'Open / Flexible'}
+Target Career Track: ${track.title} (${track.gs})
+Additional Information / Achievements: ${state.additional || 'None provided'}
+
+${docText ? `SERVICE DOCUMENTS / ADDITIONAL CONTEXT:\n${docText.slice(0, 3000)}` : ''}
+
+${isFederal ? federalTemplate : privateTemplate}
+
+UNIVERSAL RULES:
+- Use contact placeholders: [FULL NAME], [EMAIL], [PHONE], [CITY, STATE], [LINKEDIN]
+- Replace all specific unit IDs and location names with general civilian equivalents
+- Remove all classified, sensitive, or operationally specific information
+- If metrics are unknown, use bracketed estimates [e.g., ~$1.5M–$2M] — never invent exact numbers
+- Translate every piece of military terminology: "SARSS" → "enterprise inventory management system", "PBUSE" → "property accountability system", "SFC" → "Senior Logistics Supervisor", etc.
+
+Generate the complete, ready-to-use resume now. Format it cleanly with clear section headers using ALL CAPS. Output only the resume — no commentary, no preamble.`;
+
+  setResumeLoading(true, isFederal ? 'Generating federal resume...' : 'Generating private sector resume...');
+  showResumeTab(type);
+
+  try {
+    const resp = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: {
+        'x-api-key': keys.claude,
+        'anthropic-version': '2023-06-01',
+        'content-type': 'application/json',
+        'anthropic-dangerous-direct-browser-access': 'true'
+      },
+      body: JSON.stringify({
+        model: 'claude-haiku-4-5-20251001',
+        max_tokens: isFederal ? 3000 : 2000,
+        messages: [{ role: 'user', content: prompt }]
+      })
+    });
+
+    if (!resp.ok) {
+      const err = await resp.json().catch(() => ({}));
+      throw new Error(err.error?.message || `API error ${resp.status}`);
+    }
+
+    const data = await resp.json();
+    const text = data.content[0].text;
+    state.resumes[type] = text;
+    document.getElementById('resumeOutput').textContent = text;
+    toast(`${isFederal ? 'Federal' : 'Private sector'} resume generated!`, 'success');
+  } catch(e) {
+    toast('Resume generation failed: ' + e.message, 'error');
+    console.error(e);
+  } finally {
+    setResumeLoading(false);
+  }
+}
+
+function setResumeLoading(on, text='') {
+  document.getElementById('resumeLoading').classList.toggle('hidden', !on);
+  document.getElementById('resumeLoadingText').textContent = text;
+  document.getElementById('genFedBtn').disabled = on;
+  document.getElementById('genPrivBtn').disabled = on;
+}
+
+function showResumeTab(type) {
+  state.activeTab = type;
+  document.getElementById('tabFed').classList.toggle('active', type === 'federal');
+  document.getElementById('tabPriv').classList.toggle('active', type === 'private');
+  const output = document.getElementById('resumeOutput');
+  if (state.resumes[type]) {
+    output.textContent = state.resumes[type];
+  } else {
+    output.textContent = type === 'federal'
+      ? 'Click "Generate Federal Resume" to build your USAJOBS-format resume.'
+      : 'Click "Generate Private Sector Resume" to build your civilian resume.';
+  }
+}
+
+// ============================================================
+// USAJOBS SEARCH
+// ============================================================
+async function searchJobs() {
+  const keys = getKeys();
+  const track = state.selectedTrack;
+  if (!track) return;
+
+  document.getElementById('jobsLoading').classList.remove('hidden');
+  document.getElementById('jobsList').innerHTML = '';
+
+  const keyword = encodeURIComponent(track.title);
+  const loc = state.location ? encodeURIComponent(state.location) : '';
+
+  try {
+    const resp = await fetch(
+      `https://data.usajobs.gov/api/search?Keyword=${keyword}&LocationName=${loc}&ResultsPerPage=6&SortField=OpenDate&SortDirection=Desc`,
+      {
+        headers: {
+          'Host': 'data.usajobs.gov',
+          'User-Agent': keys.email,
+          'Authorization-Key': keys.usajobs
+        }
+      }
+    );
+
+    if (!resp.ok) throw new Error('USAJOBS API returned ' + resp.status);
+
+    const data = await resp.json();
+    const jobs = data.SearchResult?.SearchResultItems || [];
+
+    document.getElementById('jobsLoading').classList.add('hidden');
+
+    if (!jobs.length) {
+      showJobsFallback(track.title);
+      return;
+    }
+
+    document.getElementById('jobsList').innerHTML = jobs.map(j => {
+      const p = j.MatchedObjectDescriptor;
+      const sal = p.PositionRemuneration?.[0];
+      const salText = sal ? `$${Math.round(sal.MinimumRange/1000)}k–$${Math.round(sal.MaximumRange/1000)}k` : '';
+      const loc = p.PositionLocation?.[0]?.LocationName || '';
+      return `
+        <div class="job-card">
+          <div class="job-title">${p.PositionTitle}</div>
+          <div class="job-agency">${p.OrganizationName}</div>
+          <div class="job-meta">
+            ${loc ? `<span class="job-tag">📍 ${loc}</span>` : ''}
+            ${salText ? `<span class="job-tag">💰 ${salText}</span>` : ''}
+            ${p.PositionSchedule?.[0]?.Name ? `<span class="job-tag">${p.PositionSchedule[0].Name}</span>` : ''}
+            ${p.PositionOfferingType?.[0]?.Name ? `<span class="job-tag">${p.PositionOfferingType[0].Name}</span>` : ''}
+          </div>
+          <a class="job-link" href="${p.PositionURI}" target="_blank">View on USAJOBS →</a>
+        </div>
+      `;
+    }).join('');
+
+  } catch(e) {
+    document.getElementById('jobsLoading').classList.add('hidden');
+    showJobsFallback(track.title);
+  }
+}
+
+function showJobsFallback(title) {
+  const q = encodeURIComponent(title + (state.location ? ' ' + state.location : ''));
+  document.getElementById('jobsList').innerHTML = `
+    <div class="jobs-fallback">
+      ℹ️ Live job search requires server-side proxy (CORS limitation for local file).
+      <a href="https://www.usajobs.gov/search/?k=${q}" target="_blank" style="color:var(--navy-light);font-weight:600">
+        Search "${title}" on USAJOBS directly →
+      </a>
+    </div>
+  `;
+}
+
+// ============================================================
+// EXPORT
+// ============================================================
+function exportPDF() {
+  window.print();
+}
+
+function exportText() {
+  const text = document.getElementById('resumeOutput').textContent;
+  if (!text || text.startsWith('Click')) { toast('Generate a resume first.','error'); return; }
+  const blob = new Blob([text], { type: 'text/plain' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `ranktorole_resume_${state.activeTab}_${Date.now()}.txt`;
+  a.click();
+  URL.revokeObjectURL(url);
+  toast('Resume downloaded.', 'success');
+}
+
+function copyResume() {
+  const text = document.getElementById('resumeOutput').textContent;
+  if (!text || text.startsWith('Click')) { toast('Generate a resume first.','error'); return; }
+  navigator.clipboard.writeText(text).then(() => toast('Copied to clipboard!','success')).catch(() => toast('Copy failed — try selecting and copying manually.','error'));
+}
+
+// ============================================================
+// FILE UPLOAD
+// ============================================================
+function handleFile(file) {
+  if (!file) return;
+  if (file.size > 5 * 1024 * 1024) { toast('File too large (5MB max).','error'); return; }
+  document.getElementById('fileName').textContent = file.name;
+  document.getElementById('fileInfo').classList.remove('hidden');
+  document.getElementById('uploadZone').classList.add('hidden');
+
+  const reader = new FileReader();
+  reader.onload = e => {
+    state.documentText = e.target.result;
+    document.getElementById('pasteText').value = state.documentText.slice(0, 5000);
+    toast('File loaded. Text extracted for analysis.', 'success');
+  };
+  reader.readAsText(file);
+}
+
+function clearFile() {
+  state.documentText = '';
+  document.getElementById('pasteText').value = '';
+  document.getElementById('fileInfo').classList.add('hidden');
+  document.getElementById('uploadZone').classList.remove('hidden');
+  document.getElementById('fileInput').value = '';
+}
+
+function dragOver(e) { e.preventDefault(); document.getElementById('uploadZone').classList.add('drag'); }
+function dragLeave(e) { document.getElementById('uploadZone').classList.remove('drag'); }
+function dropFile(e) {
+  e.preventDefault();
+  document.getElementById('uploadZone').classList.remove('drag');
+  const file = e.dataTransfer.files[0];
+  if (file) handleFile(file);
+}
+
+// ============================================================
+// SETTINGS
+// ============================================================
+function openSettings() {
+  const keys = getKeys();
+  document.getElementById('keyClaudeInput').value  = keys.claude  || '';
+  document.getElementById('keyOnetInput').value    = keys.onet    || '';
+  document.getElementById('keyUsajobsInput').value = keys.usajobs || '';
+  const c = state.contact;
+  document.getElementById('contactName').value  = c.name  || '';
+  document.getElementById('contactEmail').value = c.email || '';
+  document.getElementById('contactPhone').value = c.phone || '';
+  document.getElementById('contactCity').value  = c.city  || '';
+  document.getElementById('settingsDrawer').classList.add('open');
+  document.getElementById('drawerOverlay').classList.add('open');
+}
+
+function closeSettings() {
+  document.getElementById('settingsDrawer').classList.remove('open');
+  document.getElementById('drawerOverlay').classList.remove('open');
+}
+
+function saveSettings() {
+  const claude  = document.getElementById('keyClaudeInput').value.trim();
+  const onet    = document.getElementById('keyOnetInput').value.trim();
+  const usajobs = document.getElementById('keyUsajobsInput').value.trim();
+  if (claude)  localStorage.setItem('ranktorole_claude', claude);
+  if (onet)    localStorage.setItem('ranktorole_onet', onet);
+  if (usajobs) localStorage.setItem('ranktorole_usajobs', usajobs);
+  updateKeyDots();
+  toast('Settings saved.', 'success');
+  setTimeout(closeSettings, 800);
+}
+
+function saveContact() {
+  state.contact = {
+    name:  document.getElementById('contactName').value,
+    email: document.getElementById('contactEmail').value,
+    phone: document.getElementById('contactPhone').value,
+    city:  document.getElementById('contactCity').value
+  };
+  localStorage.setItem('ranktorole_contact', JSON.stringify(state.contact));
+  toast('Contact info saved.', 'success');
+}
+
+function updateKeyDots() {
+  const keys = getKeys();
+  document.getElementById('dotClaude').className  = 'key-dot ' + (keys.claude  ? 'ok' : 'missing');
+  document.getElementById('dotOnet').className    = 'key-dot ' + (keys.onet    ? 'ok' : 'missing');
+  document.getElementById('dotUsajobs').className = 'key-dot ' + (keys.usajobs ? 'ok' : 'missing');
+}
+
+// ============================================================
+// DEMO MODE (92A)
+// ============================================================
+function loadDemo() {
+  selectBranch('army');
+  goStep(2);
+  setTimeout(() => {
+    document.getElementById('mosInput').value = '92A';
+    detectMOS('92A');
+    document.getElementById('rankInput').value = 'E-6 (SSG/PO1/GySgt/TSgt)';
+    document.getElementById('yearsInput').value = '10';
+    document.getElementById('clearanceInput').value = 'Secret';
+    document.getElementById('educationInput').value = "Associate's";
+    document.getElementById('locationInput').value = 'Atlanta, GA';
+    document.getElementById('additionalInput').value = 'Managed $2.1M equipment inventory with 100% accountability. Led 8-person supply team during 9-month OIF deployment. Certified forklift operator. Army Achievement Medal (x3), Army Commendation Medal. Completed Unit Supply Course. SARSS-1 and PBUSE certified. Maintained 99.8% supply fill rate for 450-person battalion.';
+    toast('Demo loaded: Army 92A — Staff Sergeant, 10 years.', 'success');
+  }, 100);
+}
+
+// ============================================================
+// TOAST
+// ============================================================
+function toast(msg, type='') {
+  const wrap = document.getElementById('toastWrap');
+  const el = document.createElement('div');
+  el.className = 'toast' + (type ? ' '+type : '');
+  el.textContent = msg;
+  wrap.appendChild(el);
+  setTimeout(() => { el.style.opacity='0'; el.style.transform='translateX(110%)'; el.style.transition='all 0.3s'; setTimeout(() => el.remove(), 350); }, 3500);
+}
+
+// ============================================================
+// START
+// ============================================================
+init();
+</script>
+</body>
+</html>
