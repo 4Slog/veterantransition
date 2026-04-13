@@ -5,6 +5,8 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>RankToRole — Military to Civilian Resume Builder</title>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/mammoth/1.6.0/mammoth.browser.min.js"></script>
 <style>
 :root {
   --navy: #1a3a5c;
@@ -1224,20 +1226,40 @@ function copyResume() {
 // ============================================================
 // FILE UPLOAD
 // ============================================================
-function handleFile(file) {
+async function handleFile(file) {
   if (!file) return;
   if (file.size > 5 * 1024 * 1024) { toast('File too large (5MB max).','error'); return; }
   document.getElementById('fileName').textContent = file.name;
   document.getElementById('fileInfo').classList.remove('hidden');
   document.getElementById('uploadZone').classList.add('hidden');
+  toast('Extracting text...', '');
 
-  const reader = new FileReader();
-  reader.onload = e => {
-    state.documentText = e.target.result;
-    document.getElementById('pasteText').value = state.documentText.slice(0, 5000);
-    toast('File loaded. Text extracted for analysis.', 'success');
-  };
-  reader.readAsText(file);
+  const ext = file.name.split('.').pop().toLowerCase();
+  try {
+    let text = '';
+    if (ext === 'txt') {
+      text = await file.text();
+    } else if (ext === 'pdf') {
+      pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+      const buf = await file.arrayBuffer();
+      const pdf = await pdfjsLib.getDocument({ data: buf }).promise;
+      for (let i = 1; i <= pdf.numPages; i++) {
+        const page = await pdf.getPage(i);
+        const content = await page.getTextContent();
+        text += content.items.map(s => s.str).join(' ') + '\n';
+      }
+    } else if (ext === 'docx' || ext === 'doc') {
+      const buf = await file.arrayBuffer();
+      const result = await mammoth.extractRawText({ arrayBuffer: buf });
+      text = result.value;
+    }
+    state.documentText = text;
+    document.getElementById('pasteText').value = text.slice(0, 5000);
+    toast('Text extracted successfully.', 'success');
+  } catch(e) {
+    toast('Could not parse file. Try copy-pasting the text instead.', 'error');
+    console.error(e);
+  }
 }
 
 function clearFile() {
