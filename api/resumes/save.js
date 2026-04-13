@@ -8,8 +8,10 @@ export default async function handler(req, res) {
   const userResp = await fetch(`${process.env.SUPABASE_URL}/auth/v1/user`, {
     headers: { 'Authorization': `Bearer ${token}`, 'apikey': process.env.SUPABASE_ANON_KEY }
   });
-  if (!userResp.ok) return res.status(401).json({ error: 'Invalid token' });
-  const { id: user_id } = await userResp.json();
+  const userBody = await userResp.json();
+  console.log('auth check:', userResp.status, JSON.stringify(userBody));
+  if (!userResp.ok) return res.status(401).json({ error: 'Invalid token', detail: userBody });
+  const { id: user_id } = userBody;
 
   const { title, branch, mos, resume_type, content } = req.body;
 
