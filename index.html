@@ -750,6 +750,11 @@ select.form-input{appearance:none;background-image:url("data:image/svg+xml,%3Csv
       </div>
     </div>
 
+    <!-- CAREER PROFILE STATUS CARD -->
+    <div id="profileCard" style="display:none;margin-bottom:1rem;padding:0.65rem 1rem;border-radius:8px;border:1px solid var(--border);transition:background 0.2s,border-color 0.2s">
+      <div id="profileCardContent" style="font-size:0.84rem"></div>
+    </div>
+
     <div class="resume-type-btns">
       <button class="resume-type-btn active" id="tabFed" onclick="handleResumeTab('federal')">Federal Resume</button>
       <button class="resume-type-btn" id="tabPriv" onclick="handleResumeTab('private')">Private Sector</button>
@@ -915,6 +920,7 @@ let state = {
   additional: '', documents: [], selectedTrack: null,
   veteransPreference: '', jobAnnouncement: '',
   resumes: { federal: '', private: '', master: '', linkedin: '', coverletter: '' },
+  careerProfile: null,
   activeTab: 'federal', step: 1, contact: {}
 };
 
@@ -1140,12 +1146,20 @@ function saveResumesToStorage() {
   try { localStorage.setItem('veterantransition_resumes', JSON.stringify(state.resumes)); } catch(e) {}
 }
 
+function saveProfileToStorage() {
+  try { localStorage.setItem('veterantransition_profile', JSON.stringify(state.careerProfile)); } catch(e) {}
+}
+
 function init() {
   const stored = JSON.parse(localStorage.getItem('veterantransition_contact') || '{}');
   state.contact = stored;
   try {
     const saved = JSON.parse(localStorage.getItem('veterantransition_resumes') || '{}');
     Object.keys(state.resumes).forEach(k => { if (saved[k]) state.resumes[k] = saved[k]; });
+  } catch(e) {}
+  try {
+    const savedProfile = JSON.parse(localStorage.getItem('veterantransition_profile') || 'null');
+    if (savedProfile) state.careerProfile = savedProfile;
   } catch(e) {}
   renderStep(1);
 }
@@ -1183,6 +1197,7 @@ function renderStep(n) {
     if (output && state.resumes[state.activeTab]) {
       output.textContent = state.resumes[state.activeTab];
     }
+    updateProfileCard(state.careerProfile ? 'ready' : 'none', state.careerProfile);
   }
 }
 
@@ -1384,6 +1399,151 @@ function selectTrack(i) {
 
 <script>
 // ============================================================
+// CAREER PROFILE — PASS 1: EXTRACT
+// ============================================================
+function updateProfileCard(status, profile) {
+  const card = document.getElementById('profileCard');
+  const content = document.getElementById('profileCardContent');
+  if (!card || !content) return;
+  if (status === 'none') { card.style.display = 'none'; return; }
+  card.style.display = '';
+  if (status === 'extracting') {
+    card.style.background = 'var(--bg-alt)';
+    card.style.borderColor = 'var(--border)';
+    content.innerHTML = '<div class="loading-row" style="margin:0"><div class="spinner" style="width:16px;height:16px;border-width:2px"></div><span>Analyzing your service documents — building career profile...</span></div>';
+  } else if (status === 'ready' && profile) {
+    card.style.background = '#f0fdf4';
+    card.style.borderColor = '#86efac';
+    const gaps = profile.meta?.coverageGaps?.length || 0;
+    const assignments = profile.assignments?.length || 0;
+    content.innerHTML = `<div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:0.5rem">
+      <div style="color:#166534">
+        <strong>Career profile ready</strong> — ${[profile.rank, profile.mosTitle].filter(Boolean).join(' ')}${profile.yearsService ? ` | ${profile.yearsService} yrs` : ''}${profile.clearance?.level ? ` | ${profile.clearance.level}` : ''}${assignments ? ` | ${assignments} rating period${assignments!==1?'s':''} extracted` : ''}${gaps ? ` | <span style="color:#b45309">${gaps} gap${gaps>1?'s':''} flagged</span>` : ''}
+      </div>
+      <button class="btn btn-outline btn-sm" style="font-size:0.78rem;padding:0.2rem 0.6rem" onclick="reExtractProfile()">Re-extract</button>
+    </div>`;
+  } else if (status === 'error') {
+    card.style.background = '#fff7ed';
+    card.style.borderColor = '#fdba74';
+    content.innerHTML = '<span style="color:#c2410c">Document analysis had issues — resumes will generate using raw documents.</span>';
+  }
+}
+
+async function extractCareerProfile() {
+  const pasteText = document.getElementById('pasteText').value;
+  const allDocs = state.documents.slice().reverse().map(d => `=== ${d.name} ===\n${d.text}`).join('\n\n');
+  const docText = [allDocs, pasteText].filter(Boolean).join('\n\n');
+  if (!docText.trim()) return null;
+
+  updateProfileCard('extracting');
+  const loadingEl = document.getElementById('resumeLoadingText');
+  if (loadingEl) loadingEl.textContent = 'Analyzing service documents...';
+
+  const prompt = `Extract a structured career profile JSON from these military service documents.
+
+EXTRACTION RULES:
+1. One assignment record per RATING PERIOD (per NCOER/OER/FITREP boundary). Three sequential NCOERs at Fort Gordon = three separate assignment objects, NOT one combined record.
+2. ratingPeriodStart/ratingPeriodEnd = dates on the evaluation report, NOT PCS orders.
+3. rawMilitary = verbatim text from document — never paraphrase or alter.
+4. For metrics: always use the LARGEST documented figure (APS equipment = $3.2B not the sub-unit property book; use what's documented).
+5. civilianTitle: translate each military duty title to the closest civilian job title.
+6. federalTranslation: rewrite each accomplishment using OPM/USAJOBS keyword patterns.
+7. Extract ALL accomplishments — do not truncate or summarize any.
+8. For missing fields use null (not empty string "").
+9. completenessScore 0-100 based on data completeness across all fields.
+10. coverageGaps: flag any date ranges not covered by any document.
+
+Return ONLY valid JSON — no markdown fences, no explanation, no preamble or closing text.
+
+SCHEMA (follow exactly, populate all fields from documents):
+{
+  "contact": {"name": null, "phone": null, "email": null, "city": null, "state": null, "zip": null},
+  "branch": null, "mos": null, "mosTitle": null, "rank": null, "payGrade": null,
+  "yearsService": null, "separationDate": null, "component": null,
+  "clearance": {"level": null, "status": null, "investigationType": null, "polygraph": null},
+  "veteransPreference": {"type": null, "points": null, "disabilityRating": null},
+  "careerSummary": null,
+  "assignments": [
+    {
+      "id": "assign_1", "positionType": "primary_duty",
+      "includeIn": ["federal","private_sector"],
+      "ratingPeriodStart": null, "ratingPeriodEnd": null, "evaluationReportType": null,
+      "dutyTitle": null, "civilianTitle": null, "scopeStatement": null,
+      "unit": {"type": null, "designation": null, "parentCommand": null, "personnelStrength": null},
+      "location": {"installation": null, "city": null, "state": null, "country": "USA"},
+      "hoursPerWeek": 40, "payGrade": null, "salaryStart": null, "salaryEnd": null,
+      "supervisor": {"title": null, "name": null, "phone": null, "mayContact": true},
+      "accomplishments": [
+        {
+          "id": "acc_1_1",
+          "rawMilitary": null,
+          "civilianTranslation": null,
+          "federalTranslation": null,
+          "metrics": {"dollarValue": null, "personnelCount": null, "percentageImprovement": null, "timeframe": null},
+          "skills": [], "includeIn": ["federal","private_sector"]
+        }
+      ],
+      "systems": [], "dateConflicts": [], "confidence": "high", "sourceDocuments": []
+    }
+  ],
+  "education": [{"degree": null, "major": null, "institution": null, "city": null, "state": null, "year": null}],
+  "militaryEducation": [{"course": null, "institution": null, "completionDate": null}],
+  "awards": [{"name": null, "abbreviation": null, "count": 1, "civilianTranslation": null}],
+  "certifications": [{"name": null, "issuer": null, "dateEarned": null}],
+  "skills": {"technical": [], "leadership": [], "logistics": []},
+  "deployments": [{"operation": null, "theater": null, "startDate": null, "endDate": null, "role": null, "combatZone": true}],
+  "meta": {"extractedFrom": [], "completenessScore": 0, "coverageGaps": [], "missingCriticalFields": []}
+}
+
+SERVICE DOCUMENTS:
+${docText.slice(0, 120000)}`;
+
+  try {
+    const resp = await fetch('/api/chat', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({
+        model: 'claude-sonnet-4-6',
+        max_tokens: 6000,
+        messages: [{ role: 'user', content: prompt }]
+      })
+    });
+    if (!resp.ok) throw new Error('API error ' + resp.status);
+    const data = await resp.json();
+    let text = data.content[0].text.trim();
+    if (text.startsWith('```')) text = text.replace(/^```(?:json)?\n?/, '').replace(/\n?```$/, '');
+    const profile = JSON.parse(text);
+    state.careerProfile = profile;
+    saveProfileToStorage();
+    updateProfileCard('ready', profile);
+    if (loadingEl) loadingEl.textContent = 'Career profile ready — generating resume...';
+    return profile;
+  } catch(e) {
+    console.error('Career profile extraction failed:', e);
+    updateProfileCard('error');
+    return null;
+  }
+}
+
+async function ensureCareerProfile() {
+  if (state.careerProfile) return state.careerProfile;
+  return await extractCareerProfile();
+}
+
+async function reExtractProfile() {
+  state.careerProfile = null;
+  localStorage.removeItem('veterantransition_profile');
+  Object.keys(state.resumes).forEach(k => state.resumes[k] = '');
+  saveResumesToStorage();
+  const out = document.getElementById('resumeOutput');
+  if (out) out.textContent = 'Re-extracting career profile...';
+  await extractCareerProfile();
+  if (out) out.textContent = 'Career profile refreshed. Click any resume tab to regenerate.';
+}
+</script>
+
+<script>
+// ============================================================
 // RESUME GENERATION
 // ============================================================
 async function generateResume(type) {
@@ -1397,143 +1557,189 @@ async function generateResume(type) {
   state.jobAnnouncement    = document.getElementById('jobAnnouncementInput')?.value || '';
 
   const contact = state.contact;
-  const track = state.selectedTrack || { title: 'Federal Employment', gs: 'GS', desc: '' };
-  const mos = state.mosData ? `${state.mos} — ${state.mosData.title}` : state.mos;
-  const pasteText = document.getElementById('pasteText').value;
-  const allDocs = state.documents.slice().reverse().map(d => `=== ${d.name} ===\n${d.text}`).join('\n\n');
-  const docText = [allDocs, pasteText].filter(Boolean).join('\n\n');
+  const track = state.selectedTrack || { title: 'Federal Employment', gs: 'GS-7', desc: '' };
   const isFederal = type === 'federal';
-  const isMaster = type === 'master';
-
-  const federalTemplate = `
-FEDERAL RESUME (USAJOBS FORMAT):
-
-SECTIONS (in this order):
-1. CONTACT: [NAME] | [CITY, STATE] | [PHONE] | [EMAIL]
-   Veterans Preference: ${state.veteransPreference || 'None'} | Clearance: ${state.clearance || 'See documents'}
-2. PROFESSIONAL SUMMARY (3-4 lines) — keyword-rich, targeting ${track.title} (${track.gs})
-3. PROFESSIONAL EXPERIENCE (reverse chronological, largest section)
-   Each entry format:
-   [JOB TITLE] | [UNIT TYPE — no unit IDs] | [City, State or Country]
-   [Month Year] – [Month Year] | 40 hours/week | Salary: [rank-based equivalent, e.g., E-7 ~$54k–$62k/yr]
-   Supervisor: [Title/Name if known, or "[Supervisor Name]"] | May Contact: Yes
-   • Action verb + specific task + quantified result
-4. EDUCATION: [Degree] | [Institution] | [City, State] | [Year]
-5. CERTIFICATIONS: Professional certs and military schools only (no fitness tests)
-6. SKILLS: comma-separated
-
-FEDERAL-SPECIFIC RULES:
-- 40 hours/week is correct for ALL active duty positions — never change this
-- Every entry MUST have hours/week, supervisor, salary — HR auto-rejects if missing
-- Plain text only — no tables, columns, graphics
-- Mirror exact keywords from the target job announcement`;
-
-  const privateTemplate = `
-PRIVATE SECTOR RESUME (ATS-Optimized):
-SECTIONS (in this order):
-1. CONTACT: [NAME] | [City, State] | [Phone] | [Email]
-2. PROFESSIONAL SUMMARY (2-3 lines) — keyword-rich, targeting ${track.title} (${track.gs})
-3. CORE COMPETENCIES (place BEFORE experience — ATS keyword boost)
-   10-14 most relevant skills, comma-separated
-4. PROFESSIONAL EXPERIENCE (reverse chronological)
-   [CIVILIAN JOB TITLE] | [Organization type, no unit IDs] | [City, State] | [Month Year – Month Year]
-   • Action verb + specific task/challenge + quantified result
-5. EDUCATION: [Degree] | [Institution] | [Year]
-6. CERTIFICATIONS (relevant professional certs only)
-PRIVATE-SPECIFIC RULES:
-- 1-2 pages max (2 pages appropriate for 15+ years)
-- DO NOT include hours/week, salary, or supervisor contact — federal only
-- Every bullet MUST have a quantified metric (%, $, #, time saved)
-- Skills section BEFORE experience (boosts ATS keyword match rate)`;
-
-  const masterTemplate = `
-MASTER RESUME — Comprehensive Career Inventory (No Length Limit):
-PURPOSE: NOT a submission resume. A complete career inventory for the veteran's own reference. Include EVERYTHING.
-SECTIONS (in this order):
-1. CONTACT INFORMATION
-2. PROFESSIONAL SUMMARY (4-6 lines)
-3. CORE COMPETENCIES & SKILLS (categorized: Leadership, Technical, Administrative, Systems & Tools)
-4. PROFESSIONAL EXPERIENCE — EXPAND ALL
-   Show each assignment. For assignments with multiple rating periods, list EACH period as its own sub-entry.
-   Format: [Unit type | Location | Full assignment date range]
-     > [Duty title] | [rating period dates] — [accomplishments + metrics + notable evaluator language verbatim]
-5. EDUCATION (all degrees, military education, NCOES, PME)
-6. MILITARY TRAINING & CERTIFICATIONS (every cert, MOS qualification, ASI, language, PME)
-7. AWARDS & COMMENDATIONS (all awards with civilian translation of significance)
-8. SECURITY CLEARANCE: ${state.clearance || 'See documents'}
-9. DEPLOYMENTS & COMBAT SERVICE (operation name, theater, dates, role)
-10. PROFESSIONAL AFFILIATIONS / VOLUNTEER SERVICE
-MASTER-SPECIFIC RULES:
-- No length limit — expand every period, every assignment
-- Include verbatim evaluator quotes for top-tier ratings`;
-
-  const rankMosInferredSkills = `
-CRITICAL — INFERRED SKILLS BY RANK/MOS (include these even if NOT in documents):
-Based on ${state.rank || 'the veteran'}'s rank and ${mos || 'MOS'}, the following skills are ASSUMED STANDARD:
-
-NCO/Senior NCO/Officer level (E5+/O1+): Microsoft Office Suite, budget management, personnel counseling, performance evaluations, training program development, formal briefing/public speaking, mentoring, cross-functional team coordination, regulatory compliance, risk assessment, emergency/crisis response.
-
-If 10+ years: strategic planning, interagency coordination, organizational change management, large-scale logistics coordination.
-
-If SECRET or above clearance: information security, OPSEC, sensitive materials handling, need-to-know access control.`;
-
+  const isMaster  = type === 'master';
+  const isPrivate = type === 'private';
   const contactName  = contact.name  || '[YOUR FULL NAME]';
   const contactEmail = contact.email || '[YOUR EMAIL]';
   const contactPhone = contact.phone || '[YOUR PHONE]';
   const contactCity  = contact.city  || '[YOUR CITY, STATE]';
 
-  const prompt = `You are an expert military-to-civilian resume writer. Generate a complete, ready-to-submit ${isMaster ? 'master career inventory' : isFederal ? 'federal USAJOBS' : 'private sector'} resume following the exact template and rules below.
-
-VETERAN BACKGROUND:
-Branch: ${state.branch ? state.branch.charAt(0).toUpperCase() + state.branch.slice(1) : 'Extract from document'}
-Occupational Code (MOS/AFSC/Rating/NEC): ${mos || 'Extract from document'}
-Rank at Separation/Retirement: ${state.rank || 'Extract from document'}
-Years of Service: ${state.years || 'Extract from document'}
-Security Clearance: ${state.clearance || 'Extract from document'}
-Education: ${state.education || 'Extract from document'}
-Target Location: ${state.location || 'Open / Flexible'}
-Target Career Track: ${track.title} (${track.gs})
-Additional Information: ${state.additional || 'Extract awards, certifications, and notable achievements from documents'}
-
-CONTACT INFORMATION (use these exact values — do not invent or alter):
-Name: ${contactName}
-Email: ${contactEmail}
-Phone: ${contactPhone}
-Location: ${contactCity}
-
-${docText ? `SERVICE DOCUMENTS:\n${docText.slice(0, isMaster ? 150000 : 50000)}` : ''}
-${docText ? 'NOTE: Use the service documents as the primary source for dates, positions, accomplishments, and metrics. Extract real details rather than using placeholders where possible.' : ''}
-
-${rankMosInferredSkills}
-
-${isMaster ? masterTemplate : isFederal ? federalTemplate : privateTemplate}
-
-UNIVERSAL RULES (apply to all resume types, in priority order):
-1. CONTACT: Use provided name/email/phone/location exactly. Never invent or alter.
-2. SOURCES: Synthesize all documents — do not pick one and discard others. TP/ERB → official assignment date windows. NCOERs → accomplishments, metrics, duty titles (prefer NCOER values for all quantified data). 1–3 month date differences between TP/ERB and NCOER = rating boundary variance — use the wider range. Metric conflicts → use NCOER value.
-3. TIMELINE: Military service is continuous — zero gaps exist from enlistment to separation. Sort all positions chronologically (oldest first). End date of each position must connect to start of next (≤1 month gap). Known start date caps end date of prior assignment; known end date floors start date of next. Backward date range → [DATE CONFLICT — verify with service records]. Gap >1 month → [UNDOCUMENTED PERIOD: MMM YYYY–MMM YYYY — additional records needed].
-4. POSITIONS: Same unit + same location → ONE entry spanning the full date range. Different city or country → always a separate entry, even if MOS/role is similar. Master resume only: expand each rating period as its own sub-entry under the assignment.
-5. GS TARGETING: E-1–E-3: GS-2–4; E-4: GS-3–5; E-5/E-6: GS-5–7; E-7/E-8: GS-7–11 (GS-9–11 with 10+ yrs); E-9: GS-10–13; W-1/W-2: GS-7–9; W-3/W-4: GS-9–12; W-5: GS-12–13; O-1/O-2: GS-7–9; O-3: GS-9–11; O-4/O-5: GS-12–14; O-6+: GS-14–15. Adjust upward 1–2 grades for 15+ years of service.
-6. LOCATIONS: Keep real city/state/country for every position. Translate unit IDs to civilian descriptions but never replace actual geographic locations.
-7. SALARY (federal only): Use rank-equivalent pay range (e.g., "E-7, ~$54k–$62k/yr equivalent"). Never invent specific figures.
-8. CERTS/EDUCATION: From documents only. No expiration status. No fitness tests or routine qualifications. No speculative degrees.
-9. LANGUAGE: Expand all military acronyms on first use (e.g., "NCOER (Non-Commissioned Officer Evaluation Report)"). Translate all jargon to civilian equivalents. Translate awards: MSM = top-5% performance award; ARCOM = commendation award; AAM = achievement award; MUC/PUC = unit excellence award; BSM = valor or meritorious service medal. Translate NCOER ratings: "Most Qualified" = top performer (top 5–10%); "Highly Qualified" = above average performer. Unknown metrics → [~estimate range]. No classified or operationally sensitive information.
-10. DEPLOYMENTS: Identify combat/contingency deployments by operation name, theater, and duration. Frame as high-stakes logistics operations under hostile conditions with zero margin for error.
-11. OUTPUT: Resume content only — no preamble, explanation, or closing commentary.
-${state.jobAnnouncement ? `\nTARGET JOB ANNOUNCEMENT (mirror its exact keywords, requirements, and KSAs throughout the resume):\n${state.jobAnnouncement.slice(0, 3000)}` : ''}
-Generate the complete resume now. Use ALL CAPS section headers.`;
-
   const loadingText = isMaster ? 'Building master career inventory...' : isFederal ? 'Generating federal resume...' : 'Generating private sector resume...';
   setResumeLoading(true, loadingText);
   showResumeTab(type);
 
+  // Pass 1: Ensure career profile extracted from documents
+  const profile = await ensureCareerProfile();
+
+  // Build source context — prefer structured profile, fall back to raw docs
+  const pasteText = document.getElementById('pasteText').value;
+  const allDocs = state.documents.slice().reverse().map(d => `=== ${d.name} ===\n${d.text}`).join('\n\n');
+  const rawDocText = [allDocs, pasteText].filter(Boolean).join('\n\n');
+  const profileJSON = profile ? JSON.stringify(profile, null, 2) : null;
+  const docLimit = isMaster ? 80000 : 40000;
+  const sourceContext = profileJSON
+    ? `CAREER PROFILE (structured extraction — use as primary source):\n${profileJSON.slice(0, docLimit)}`
+    : (rawDocText ? `SERVICE DOCUMENTS (raw fallback):\n${rawDocText.slice(0, isMaster ? 150000 : 50000)}` : 'No documents provided.');
+
+  const jobAnnSection = state.jobAnnouncement
+    ? `\nTARGET JOB ANNOUNCEMENT (mirror exact keywords, KSAs, and OPM language — HR scores against this verbatim):\n${state.jobAnnouncement.slice(0, 3000)}`
+    : `\nTarget Career Track: ${track.title} (${track.gs})${track.desc ? ' — ' + track.desc : ''}`;
+
+  let prompt;
+
+  if (isFederal) {
+    prompt = `You are a federal hiring specialist and USAJOBS-certified resume writer. Generate a complete, OPM-compliant federal resume ready for submission.
+
+CANDIDATE:
+Name: ${contactName} | Phone: ${contactPhone} | Email: ${contactEmail} | Location: ${contactCity}
+Veterans Preference: ${state.veteransPreference || 'None declared'}
+Clearance: ${profile?.clearance?.level || state.clearance || 'Extract from documents'}
+${jobAnnSection}
+
+${sourceContext}
+
+FEDERAL RESUME REQUIREMENTS — OPM MANDATED (non-negotiable):
+
+PAGE LIMIT: STRICT 2-PAGE MAXIMUM (OPM mandate effective Sept 27, 2025). Any federal resume over 2 pages is automatically ineligible for Title 5 positions. Strategy:
+- Full detail for most recent 5–7 years
+- Older service → one line: "Additional Military Service: [YYYY–YYYY] | Details available upon request"
+
+SPECIALIZED EXPERIENCE STATEMENT (mandatory — #1 eligibility factor):
+Write this at the top of Professional Summary or as a standalone paragraph:
+"I have [X] year(s) of specialized experience equivalent to the GS-[N] level, [mirror exact OPM language from announcement or infer from career track]."
+
+REQUIRED FIELDS PER POSITION (auto-rejection if ANY missing):
+- Exact month/year start AND end dates
+- 40 hours/week (active duty = always 40, no exceptions)
+- Supervisor name + phone (use "[Supervisor Name]" / "[Phone]" if not in documents)
+- Start salary and end salary (rank-equivalent: E-6 ~$47k–$54k, E-7 ~$54k–$62k, E-8 ~$62k–$72k, E-9 ~$72k–$84k)
+- Full organization name (translate unit IDs → civilian descriptions; keep real city/state/country)
+- City, State, Country (ZIP if available)
+
+SECTIONS (exact order):
+1. CONTACT INFORMATION (Name, Address, Phone, Email)
+2. VETERANS PREFERENCE & CLEARANCE
+3. SPECIALIZED EXPERIENCE STATEMENT
+4. PROFESSIONAL SUMMARY (3–4 lines, keyword-rich, mirrors announcement)
+5. PROFESSIONAL EXPERIENCE (reverse chronological, most recent first — all required fields)
+6. EDUCATION (degrees + relevant civilian coursework)
+7. MILITARY EDUCATION & TRAINING (NCOES, PME, professional military courses)
+8. CERTIFICATIONS & LICENSES (professional only, no fitness tests)
+9. SKILLS & COMPETENCIES (mirror announcement keywords verbatim)
+
+FORMATTING:
+- Plain text only — no tables, columns, graphics, bold, headers/footers
+- ALL CAPS section headers
+- Each accomplishment bullet: strong action verb + specific detail + quantified result
+- Mirror exact keywords from the job announcement throughout — HR uses keyword scoring
+${state.veteransPreference ? `- Include: "${state.veteransPreference} preference-eligible veteran, DD-214 on file"` : ''}
+
+Generate the complete federal resume now. Resume content only — no preamble or commentary.`;
+
+  } else if (isPrivate) {
+    prompt = `You are an ATS-optimization expert and private sector resume writer. Generate a complete, ATS-optimized private sector resume for a military veteran.
+
+CANDIDATE:
+Name: ${contactName} | Phone: ${contactPhone} | Email: ${contactEmail} | Location: ${contactCity}
+Clearance: ${profile?.clearance?.level || state.clearance || 'Extract from documents'}
+${jobAnnSection}
+
+${sourceContext}
+
+PRIVATE SECTOR RESUME REQUIREMENTS:
+
+PAGE LIMIT: MAXIMUM 2 PAGES — hard ceiling, never exceed
+
+ATS CRITICAL: Contact info MUST be in document body (not header/footer — parsers skip headers/footers on most ATS platforms including Taleo, iCIMS, Workday).
+
+SECTIONS (exact order — this sequence is optimized for 2025 ATS scoring):
+1. CONTACT (in body): Name | City, State | Phone | Email
+2. PROFESSIONAL SUMMARY (2–3 lines — tight value proposition, no clichés)
+3. CORE COMPETENCIES (place BEFORE experience — 2025 ATS shift; dedicated skills section scores higher)
+   - 8–12 skills, hard:soft ratio 60:40
+   - Every priority keyword appears here AND in experience section
+   - Target 65–75% keyword match with job posting (above 75% = over-optimization flag)
+4. PROFESSIONAL EXPERIENCE (reverse chronological)
+   [CIVILIAN JOB TITLE] | [Organization type — NO unit numbers/IDs] | [City, State] | [Mon YYYY – Mon YYYY]
+   Bullet format — XYZ: "Accomplished [X] as measured by [Y] by doing [Z]"
+   Every bullet must have a quantified metric (%, $, headcount, time saved)
+5. EDUCATION
+6. CERTIFICATIONS (relevant professional certs only)
+
+MILITARY TRANSLATION — MANDATORY (ATS and hiring managers penalize jargon):
+- Strip ALL military acronyms — spell out every term or use civilian equivalent
+- Use civilianTitle from profile for every duty title
+- Replace "commanded/ordered" → "led/directed/coordinated"
+- Replace "Responsible for..." → start with strong action verb
+- Collaborative language throughout: "partnered", "coordinated", "built consensus"
+- No rank abbreviations — use civilian leadership tier (Senior Manager, Operations Supervisor)
+- Culture-fit matters: private-sector hiring managers worry veterans are rigid/hierarchical — demonstrate adaptability and consensus-driven decision-making
+- Workday ATS weights job title similarity heavily — ensure job titles clearly match target role
+
+Do NOT include: hours/week, supervisor contact, salary history (federal-only fields)
+
+Generate the complete private sector resume now. Resume content only — no preamble or commentary.`;
+
+  } else { // master
+    prompt = `You are a master resume architect. Generate a comprehensive master career inventory — this is NOT a submission document, it is a complete career archive with no length limit.
+
+CANDIDATE:
+Name: ${contactName} | Phone: ${contactPhone} | Email: ${contactEmail} | Location: ${contactCity}
+Clearance: ${profile?.clearance?.level || state.clearance || 'Extract from documents'}
+${jobAnnSection}
+
+${sourceContext}
+
+MASTER RESUME PURPOSE: Complete career inventory the veteran uses as the source for all targeted resumes. Include EVERYTHING — no omissions, no length limit, no truncation.
+
+STRUCTURE:
+1. CONTACT INFORMATION (complete — name, full address, phone, email)
+2. PROFESSIONAL SUMMARY (4–6 lines — comprehensive career overview)
+3. SECURITY CLEARANCE (level, status, investigation type, polygraph if applicable)
+4. CORE COMPETENCIES (categorized: Leadership | Technical | Administrative | Systems & Tools)
+
+5. PROFESSIONAL EXPERIENCE — EXPAND ALL
+For each assignment in chronological order (oldest first):
+
+[UNIT DESIGNATION | LOCATION | FULL DATE RANGE]
+Duty Title: [dutyTitle] | Civilian Equivalent: [civilianTitle]
+Scope: [unit size, budget, geographic scope from profile]
+Supervisor: [name/title] | Phone: [phone] | May Contact: Yes
+Hours/Week: 40 | Salary Equivalent: [payGrade range]
+
+ACCOMPLISHMENTS (use CCAR structure):
+• [federalTranslation from profile — start with action verb, include all metrics]
+  [If rawMilitary is available and the evaluator used notable language, quote it verbatim]
+
+Evaluator Notable Language: "[rawMilitary verbatim quote of top-tier evaluation language]"
+
+6. EDUCATION (all degrees + institution + year + GPA if strong)
+7. MILITARY EDUCATION & TRAINING (every NCOES, PME, professional course, ASI/SQI earned, languages)
+8. AWARDS & COMMENDATIONS
+   [Award Name] ([abbreviation]) — [count] — [dates]
+   Civilian Translation: [civilianTranslation from profile]
+9. DEPLOYMENTS & COMBAT SERVICE
+   [operation] | [theater] | [startDate–endDate] | [role] | Combat Zone: [yes/no]
+10. COMPLETE SKILLS INVENTORY (all technical skills, systems, equipment, languages)
+
+FLAG THESE IN OUTPUT (don't hide them):
+- Date conflicts: note "[DATE CONFLICT — verify with records]"
+- Coverage gaps: note "[UNDOCUMENTED PERIOD: MMM YYYY–MMM YYYY]"
+- Low-confidence fields: note "[ESTIMATED — verify]"
+
+Generate the complete master career inventory now. No preamble or commentary.`;
+  }
+
+  // Pass 2: Generate resume from structured profile
   try {
     const resp = await fetch('/api/chat', {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
       body: JSON.stringify({
-        model: isMaster ? 'claude-sonnet-4-6' : 'claude-haiku-4-5-20251001',
-        max_tokens: isMaster ? 5000 : isFederal ? 3000 : 2000,
+        model: 'claude-sonnet-4-6',
+        max_tokens: isMaster ? 10000 : isFederal ? 6000 : 4000,
         messages: [{ role: 'user', content: prompt }]
       })
     });
@@ -1546,8 +1752,8 @@ Generate the complete resume now. Use ALL CAPS section headers.`;
     state.resumes[type] = text;
     document.getElementById('resumeOutput').textContent = text;
     saveResumesToStorage();
-    const label = isMaster ? 'Master career inventory' : isFederal ? 'Federal' : 'Private sector';
-    toast(`${label} resume generated!`, 'success');
+    const label = isMaster ? 'Master career inventory' : isFederal ? 'Federal resume' : 'Private sector resume';
+    toast(`${label} generated!`, 'success');
     if (!reviewPromptShown) { reviewPromptShown = true; setTimeout(openReviewPrompt, 2500); }
   } catch(e) {
     toast('Resume generation failed: ' + e.message, 'error');
@@ -1604,64 +1810,79 @@ async function generateLinkedIn() {
   if (state.resumes.linkedin) return;
 
   const track = state.selectedTrack || { title: 'Federal Employment', gs: 'GS' };
-  const mos = state.mosData ? `${state.mos} — ${state.mosData.title}` : state.mos;
-  const pasteText = document.getElementById('pasteText').value;
-  const allDocs = state.documents.slice().reverse().map(d => `=== ${d.name} ===\n${d.text}`).join('\n\n');
-  const docText = [allDocs, pasteText].filter(Boolean).join('\n\n');
+  const contact = state.contact;
+  const contactName = contact.name || '[YOUR NAME]';
 
   setResumeLoading(true, 'Generating LinkedIn profile...');
+
+  const profile = await ensureCareerProfile();
+  const profileJSON = profile ? JSON.stringify(profile, null, 2) : null;
+  const pasteText = document.getElementById('pasteText').value;
+  const allDocs = state.documents.slice().reverse().map(d => `=== ${d.name} ===\n${d.text}`).join('\n\n');
+  const rawDocText = [allDocs, pasteText].filter(Boolean).join('\n\n');
+  const sourceContext = profileJSON
+    ? `CAREER PROFILE:\n${profileJSON.slice(0, 40000)}`
+    : (rawDocText ? `SERVICE DOCUMENTS:\n${rawDocText.slice(0, 50000)}` : '');
+  const jobAnnSection = state.jobAnnouncement
+    ? `\nTARGET ROLE — tailor keywords, headline, and About to this:\n${state.jobAnnouncement.slice(0, 2000)}`
+    : `\nTarget Career Track: ${track.title} (${track.gs})`;
+
+  const prompt = `You are a LinkedIn optimization expert for military veterans. Generate a complete LinkedIn profile package.
+
+CANDIDATE: ${contactName}
+${sourceContext}
+${jobAnnSection}
+
+LINKEDIN ALGORITHM & CHARACTER LIMITS — STRICTLY ENFORCE:
+
+HEADLINE (220 chars max per LinkedIn):
+Formula: [Civilian Title] | [Key Skill] | [Key Skill] | [Clearance if held]
+NEVER include: "Transitioning," "Retiring," "Seeking Opportunities," "Looking for Work"
+Top veteran mistake: defaulting to rank (never lead with rank)
+Provide 3 headline options ranked by recruiter appeal.
+
+ABOUT SECTION (target 1,500–2,000 chars — hard cap 2,600):
+CRITICAL: First 250 chars = the recruiter snippet (all they see before clicking "see more")
+— First 250 chars must stand alone as a complete value proposition
+— First person, conversational voice
+— End with a specific call to action
+— No military jargon — civilian terminology only throughout
+
+EXPERIENCE (write for most recent 2–3 positions):
+— Recent positions: 500–1,500 chars
+— Older positions: 100–400 chars
+— LinkedIn-style bullets (shorter, more conversational than resume)
+— Quantified metrics required
+
+SKILLS (recommend 20–35 to add):
+— Civilian terminology only — no MOS codes, no unit designations
+— Pin top 3 for maximum recruiter visibility
+— Clearance: use exact recruiter search strings ("Active SECRET" or "Active TS/SCI")
+  — NEVER include: SCI compartment names, polygraph type, SAP program names
+
+CRITICAL VETERAN FAILURES (avoid all):
+1. Military jargon anywhere in profile
+2. Rank-based headline
+3. No quantification in About section
+4. Listing all 20 years as separate jobs (show last 3–5 with full entries; group older)
+5. Uniform/dress photo for civilian job search
+
+OPEN TO WORK: Advise "Recruiters Only" mode for active job seekers (no public green badge; boosts recruiter dashboard placement).
+
+ALL-STAR STATUS checklist (required for maximum LinkedIn algorithm reach):
+Note which elements are still needed: photo, headline, industry/location, current job, 2 past jobs, 5 skills, About, 50 connections.
+
+Sections to output: ## HEADLINE OPTIONS | ## ABOUT SECTION | ## EXPERIENCE BULLETS | ## SKILLS LIST | ## SETUP INSTRUCTIONS | ## ALL-STAR CHECKLIST
+No preamble or commentary.`;
+
   try {
     const resp = await fetch('/api/chat', {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
       body: JSON.stringify({
-        model: 'claude-haiku-4-5-20251001',
-        max_tokens: 2000,
-        messages: [{ role: 'user', content: `You are an expert LinkedIn profile writer for military veterans transitioning to civilian careers.
-
-VETERAN BACKGROUND:
-Branch: ${state.branch ? state.branch.charAt(0).toUpperCase() + state.branch.slice(1) : 'Extract from document'}
-Occupational Code: ${mos || 'Extract from document'}
-Rank at Separation/Retirement: ${state.rank || 'Extract from document'}
-Years of Service: ${state.years || 'Extract from document'}
-Security Clearance: ${state.clearance || 'Extract from document'}
-Target Career Track: ${track.title} (${track.gs})
-Name: ${contact.name || '[NAME]'}
-${docText ? `SERVICE DOCUMENTS:\n${docText.slice(0, 50000)}` : ''}
-
-LANGUAGE RULES:
-- Expand all military acronyms on first use. Translate all jargon to civilian equivalents.
-- Translate awards: MSM = top-5% performance award; ARCOM = commendation award; AAM = achievement award; MUC/PUC = unit excellence award.
-- NCOER ratings: "Most Qualified" = top performer (top 5–10%); "Highly Qualified" = above average.
-- Military service is continuous — no employment gaps exist between enlistment and separation.
-- No classified or operationally sensitive information.
-
-Generate a complete LinkedIn profile package with these sections:
-
-## HEADLINE OPTIONS (pick the best 3 — 120 char max each)
-Option 1: [action-oriented headline]
-Option 2: [industry + value headline]
-Option 3: [role + impact headline]
-
-## ABOUT SECTION (2,600 char max — conversational, first-person, ends with CTA)
-[Write the full About section]
-
-## EXPERIENCE BULLETS (for most recent/relevant position — 3-5 bullets)
-[Write LinkedIn-style bullets — shorter than resume, more conversational]
-
-## SKILLS (list 15 relevant skills to add to LinkedIn)
-[comma-separated]
-
-## HOW TO ADD THIS TO LINKEDIN
-1. Go to linkedin.com/in/[your-profile] → Edit profile
-2. Click the pencil icon on your headline → paste your chosen headline
-3. Click Add profile section → About → paste the About section
-4. Update each position with the experience bullets
-5. Click Add profile section → Skills → add each skill listed above
-6. Connect with veterans in your target field using the headline as an icebreaker
-
-${state.jobAnnouncement ? `\nTARGET JOB ANNOUNCEMENT (tailor the profile and bullets to match its keywords):\n${state.jobAnnouncement.slice(0, 2000)}\n` : ''}
-Output only the content above — no preamble.` }]
+        model: 'claude-sonnet-4-6',
+        max_tokens: 4000,
+        messages: [{ role: 'user', content: prompt }]
       })
     });
     if (!resp.ok) throw new Error('API error ' + resp.status);
@@ -1685,87 +1906,123 @@ async function generateCoverLetter() {
   showResumeTab('coverletter');
   if (state.resumes.coverletter) return;
 
-  state.rank               = document.getElementById('rankInput').value || '';
-  state.years              = document.getElementById('yearsInput').value || '';
-  state.clearance          = document.getElementById('clearanceInput').value || '';
   state.veteransPreference = document.getElementById('veteransPreferenceInput')?.value || '';
   state.jobAnnouncement    = document.getElementById('jobAnnouncementInput')?.value || '';
 
   const track = state.selectedTrack || { title: 'Federal Employment', gs: 'GS' };
-  const mos = state.mosData ? `${state.mos} — ${state.mosData.title}` : state.mos;
-  const pasteText = document.getElementById('pasteText').value;
-  const allDocs = state.documents.slice().reverse().map(d => `=== ${d.name} ===\n${d.text}`).join('\n\n');
-  const docText = [allDocs, pasteText].filter(Boolean).join('\n\n');
   const contact = state.contact;
   const contactName  = contact.name  || '[YOUR FULL NAME]';
   const contactEmail = contact.email || '[YOUR EMAIL]';
   const contactPhone = contact.phone || '[YOUR PHONE]';
   const contactCity  = contact.city  || '[YOUR CITY, STATE]';
+  const isFederalJob = state.jobAnnouncement && /USAJOBS|GS-\d|federal|government|agency|OPM|department of/i.test(state.jobAnnouncement);
 
+  setResumeLoading(true, 'Writing cover letter...');
+
+  const profile = await ensureCareerProfile();
+  const profileJSON = profile ? JSON.stringify(profile, null, 2) : null;
+  const pasteText = document.getElementById('pasteText').value;
+  const allDocs = state.documents.slice().reverse().map(d => `=== ${d.name} ===\n${d.text}`).join('\n\n');
+  const rawDocText = [allDocs, pasteText].filter(Boolean).join('\n\n');
+  const sourceContext = profileJSON
+    ? `CAREER PROFILE:\n${profileJSON.slice(0, 25000)}`
+    : (rawDocText ? `SERVICE DOCUMENTS:\n${rawDocText.slice(0, 30000)}` : '');
   const jobSection = state.jobAnnouncement
-    ? `TARGET JOB ANNOUNCEMENT (tailor the letter to this specific posting — mirror its keywords, requirements, and agency mission):\n${state.jobAnnouncement.slice(0, 2500)}`
+    ? `TARGET JOB:\n${state.jobAnnouncement.slice(0, 2500)}`
     : `Target Career Track: ${track.title} (${track.gs})`;
 
-  const prompt = `You are an expert cover letter writer for military veterans transitioning to civilian careers.
+  const prompt = `You are an expert cover letter writer for military veterans. Generate a complete cover letter — ready to submit with zero editing required.
 
-VETERAN BACKGROUND:
-Branch: ${state.branch ? state.branch.charAt(0).toUpperCase() + state.branch.slice(1) : 'Extract from document'}
-Occupational Code: ${mos || 'Extract from document'}
-Rank at Separation: ${state.rank || 'Extract from document'}
-Years of Service: ${state.years || 'Extract from document'}
-Security Clearance: ${state.clearance || 'Extract from document'}
+CANDIDATE:
+Name: ${contactName} | Phone: ${contactPhone} | Email: ${contactEmail} | Location: ${contactCity}
 Veterans Preference: ${state.veteransPreference || 'N/A'}
+Clearance: ${profile?.clearance?.level || 'Extract from documents'}
 
-CONTACT INFORMATION:
-Name: ${contactName}
-Email: ${contactEmail}
-Phone: ${contactPhone}
-Location: ${contactCity}
+${sourceContext}
 
 ${jobSection}
 
-${docText ? `SERVICE DOCUMENTS:\n${docText.slice(0, 30000)}` : ''}
+COVER LETTER TYPE: ${isFederalJob ? 'FEDERAL GOVERNMENT' : 'PRIVATE SECTOR'}
 
-LANGUAGE RULES:
-- Expand all military acronyms on first use. Translate all jargon to civilian equivalents.
-- Awards: MSM = top-5% performance award; ARCOM = commendation; AAM = achievement; MUC/PUC = unit excellence.
-- No classified or operationally sensitive information.
-- Do NOT start with "I am writing to apply for..."
+${isFederalJob ? `FEDERAL COVER LETTER RULES:
+- 1 page, 3–4 paragraphs, formal tone, NO contractions
+- MUST include exact job announcement number and title (extract from job posting)
+- Mirror KSA language verbatim from the announcement in every paragraph
+- Address the agency mission specifically — not generic "public service"
+- ${state.veteransPreference ? `Include: "${state.veteransPreference} preference-eligible veteran, DD-214 on file"` : ''}
+- Opening: never "I am writing to apply" — lead with specialized experience match or strongest metric
 
 FORMAT:
-[Today's date — use current date]
+${new Date().toLocaleDateString('en-US', {year:'numeric',month:'long',day:'numeric'})}
 
-Hiring Manager
-[Agency/Company Name${state.jobAnnouncement ? ' — extract from announcement' : ''}]
+Human Resources Office
+[Agency Name — extract from announcement]
 [City, State]
+
+Re: [Job Title], Job Announcement No. [Number — extract from announcement]
 
 Dear Hiring Manager,
 
-[Opening — 2-3 sentences. Lead with strongest metric or accomplishment. State the role. No clichés.]
+[Opening — 2–3 sentences. Lead with "I have X years of specialized experience equivalent to GS-N" OR strongest quantified accomplishment. State the exact position title and announcement number.]
 
-[Body paragraph 1 — 3-4 sentences. 2-3 specific accomplishments with quantified metrics directly relevant to this role, translated to civilian language.]
+[Body — 3–4 sentences. 2–3 specific accomplishments using OPM language and KSA terms verbatim from the announcement. Each includes a concrete metric.]
 
-[Body paragraph 2 — 2-3 sentences. Agency/organization mission alignment. What you uniquely bring as a veteran.]
+[Agency alignment — 2–3 sentences. Reference the agency's specific mission or a recent agency initiative. Connect your documented experience directly to their mission.]
 
-[Closing — 2 sentences. Call to action. Thank them.]
+[Closing — 1–2 sentences. Confirm preference documents enclosed. Request interview.]
 
 Sincerely,
 ${contactName}
 ${contactPhone} | ${contactEmail}
+${state.veteransPreference ? `Veterans Preference: ${state.veteransPreference}` : ''}
+Enclosures: Federal Resume, SF-15 (if applicable), DD-214 (Member 4), VA Rating Letter (if applicable)` : `PRIVATE SECTOR COVER LETTER RULES:
+- 250–400 words total, 3–4 paragraphs
+- Professional but personable — contractions are acceptable
+- Company-specific detail REQUIRED: include one fact about the company NOT in the job posting (shows research, prevents AI detection)
+- Problem-Solution structure: identify a company or industry challenge → present your background as the solution
+- Opening: NEVER "I am writing to apply..." — lead with a number, a company-specific reference, or a named industry problem
 
-RULES:
-- 3-4 paragraphs total, under 400 words
-- If a job announcement was provided, mirror its exact language and requirements
-- Output only the cover letter — no preamble or commentary`;
+FORMAT:
+${new Date().toLocaleDateString('en-US', {year:'numeric',month:'long',day:'numeric'})}
 
-  setResumeLoading(true, 'Writing cover letter...');
+[Hiring Manager Name if found, else "Hiring Team"]
+[Company Name]
+
+Dear [Hiring Manager / Hiring Team],
+
+[Opening — 2–3 sentences. Lead with a specific number/accomplishment OR a company-specific hook. Never generic openers.]
+
+[Body — 3–4 sentences. 2–3 specific, quantified accomplishments from military career, fully translated to civilian terms. Directly addresses the job requirements.]
+
+[Company alignment — 2–3 sentences. Specific company detail — mission, recent initiative, market position, or something that shows genuine research. Explain why THIS company specifically.]
+
+[Closing — 2 sentences. Clear call to action. Thank them without being sycophantic.]
+
+Sincerely,
+${contactName}
+${contactPhone} | ${contactEmail}`}
+
+BANNED WORDS — AI DETECTION (never use any of these):
+delve, testament, underscore, tapestry, synergy, meticulous, pivotal, beacon, realm, "passionate about" (without specific context), "results-driven", "fast learner", "team player", "leverage", "I am writing to apply"
+
+AI DETECTION TEST: If you could swap the company name for a competitor and the letter still reads perfectly — it's too generic. Make the company-specific detail irreplaceable.
+
+VETERAN FRAMING — CRITICAL:
+- Military is the EVIDENCE, not the SUBJECT. Lead with civilian value proposition, use military to quantify.
+- ONE sentence max for transition context, then immediately pivot to civilian fit.
+- Security clearance: mention early if relevant, use exact level ("Active SECRET clearance")
+- Never explain why you left the military
+- Never use rank abbreviations without translating (and in cover letters, prefer civilian leadership title)
+
+Generate the complete cover letter now. Cover letter content only — no preamble or commentary.`;
+
   try {
     const resp = await fetch('/api/chat', {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
       body: JSON.stringify({
-        model: 'claude-haiku-4-5-20251001',
-        max_tokens: 1500,
+        model: 'claude-sonnet-4-6',
+        max_tokens: 2000,
         messages: [{ role: 'user', content: prompt }]
       })
     });
