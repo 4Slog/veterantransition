@@ -131,12 +131,12 @@ textarea.form-input{resize:vertical;min-height:100px}
 .gap-tag{background:#fef3c7;color:#92400e;padding:0.15rem 0.55rem;border-radius:5px;font-size:0.73rem;font-weight:500}
 
 /* Resume output */
-.resume-type-btns{display:flex;gap:0.5rem;margin-bottom:1.5rem;flex-wrap:wrap}
+.resume-type-btns{display:flex;gap:0.5rem;margin-bottom:0.75rem;flex-wrap:wrap}
 .resume-type-btn{padding:0.5rem 1.1rem;border-radius:8px;font-size:0.86rem;font-weight:600;cursor:pointer;border:1.5px solid var(--border);background:white;color:var(--text-light);transition:all 0.2s;font-family:inherit}
 .resume-type-btn.active{border-color:var(--navy);color:var(--navy);background:#eef2f7}
+.resume-type-btn.done{border-color:#22c55e;color:#15803d}
 .resume-output{background:white;border:1.5px solid var(--border);border-radius:var(--radius);padding:2rem;min-height:500px;font-family:'Georgia',serif;font-size:0.9rem;line-height:1.8;white-space:pre-wrap;outline:none;color:var(--text)}
 .resume-output:focus{border-color:var(--navy)}
-.generate-btn-row{display:flex;gap:0.75rem;margin-bottom:1rem;flex-wrap:wrap;align-items:center}
 
 /* Job listings */
 .job-card{border:1.5px solid var(--border);border-radius:var(--radius);padding:1rem;transition:border 0.2s;background:white;margin-bottom:0.75rem}
@@ -230,7 +230,7 @@ select.form-input{appearance:none;background-image:url("data:image/svg+xml,%3Csv
 
 /* Print */
 @media print{
-  .header,.progress-nav,.btn-row,.generate-btn-row,.resume-type-btns,.job-section,.settings-btn,.drawer,.drawer-overlay,.toast-wrap,.footer{display:none!important}
+  .header,.progress-nav,.btn-row,.resume-type-btns,.loading-row,.job-section,.settings-btn,.drawer,.drawer-overlay,.toast-wrap,.footer{display:none!important}
   .resume-output{border:none;padding:0;min-height:unset}
   body{background:white}
   .card{box-shadow:none;padding:0;border:none}
@@ -480,21 +480,15 @@ select.form-input{appearance:none;background-image:url("data:image/svg+xml,%3Csv
     <div class="card-title">Your Resume</div>
     <div class="card-sub">Generate your federal (USAJOBS), private sector, master resume, or LinkedIn profile. Click any section to edit directly.</div>
 
-    <div class="generate-btn-row">
-      <button class="btn btn-gold" onclick="generateResume('federal')" id="genFedBtn">Generate Federal Resume</button>
-      <button class="btn btn-primary" onclick="generateResume('private')" id="genPrivBtn">Generate Private Sector</button>
-      <button class="btn btn-outline" onclick="generateResume('master')" id="genMasterBtn">Generate Master Resume</button>
-      <div class="loading-row hidden" id="resumeLoading">
-        <div class="spinner"></div>
-        <span id="resumeLoadingText">Generating resume...</span>
-      </div>
-    </div>
-
     <div class="resume-type-btns">
-      <button class="resume-type-btn active" id="tabFed" onclick="showResumeTab('federal')">Federal (USAJOBS)</button>
-      <button class="resume-type-btn" id="tabPriv" onclick="showResumeTab('private')">Private Sector</button>
-      <button class="resume-type-btn" id="tabMaster" onclick="showResumeTab('master')">Master Resume</button>
-      <button class="resume-type-btn" id="tabLinkedIn" onclick="generateLinkedIn()">LinkedIn Profile</button>
+      <button class="resume-type-btn active" id="tabFed" onclick="handleResumeTab('federal')">Federal Resume</button>
+      <button class="resume-type-btn" id="tabPriv" onclick="handleResumeTab('private')">Private Sector</button>
+      <button class="resume-type-btn" id="tabMaster" onclick="handleResumeTab('master')">Master Resume</button>
+      <button class="resume-type-btn" id="tabLinkedIn" onclick="handleResumeTab('linkedin')">LinkedIn Profile</button>
+    </div>
+    <div class="loading-row hidden" id="resumeLoading" style="margin-bottom:0.75rem">
+      <div class="spinner"></div>
+      <span id="resumeLoadingText">Generating resume...</span>
     </div>
 
     <div class="resume-output" id="resumeOutput" contenteditable="true">Click a "Generate" button above to build your resume. You can edit this area directly after generation.</div>
@@ -1232,16 +1226,18 @@ ${isMaster ? masterTemplate : isFederal ? federalTemplate : privateTemplate}
 
 UNIVERSAL RULES:
 - CONTACT INFO: Use the exact name/email/phone/location values provided above. Do NOT invent phone numbers, emails, or addresses under any circumstances.
-- CHRONOLOGICAL CONTINUITY: Military service members are continuously employed — there are zero employment gaps. From enlistment to separation, every month is an active assignment. If positions extracted from the documents do not account for all time, flag each gap explicitly: [UNDOCUMENTED PERIOD: MMM YYYY – MMM YYYY — additional records needed]. Never silently skip time.
-- DUTY STATION LOCATIONS: Keep real city/state/country for every position (e.g., Fort Wainwright, AK; Seoul, South Korea; Salt Lake City, UT). Do not replace geographic locations with invented cities.
-- UNIT DESIGNATIONS: Translate specific unit IDs (e.g., "403d AFSB") to general civilian-readable descriptions (e.g., "U.S. Army Theater Logistics Support Brigade"), but preserve the actual city/state/country.
-- SALARY (federal only): Use military pay equivalent for the rank held (e.g., "E-7 with 15 years service, ~$54,000–$62,000/year equivalent"). Do not invent specific dollar figures. Use [SALARY — verify with LES] if unknown.
-- EDUCATION: Only include education explicitly confirmed in the documents. Do not add speculative entries not in the documents.
-- CERTIFICATIONS: Only professional/technical certifications, military occupational schools, and security clearances. No physical fitness tests, routine weapons qualifications, or mandatory annual training.
+- CHRONOLOGICAL CONTINUITY: Military service is continuous employment — zero gaps exist from enlistment to separation. Every month is accounted for. If positions extracted do not cover all time, flag each gap as: [UNDOCUMENTED PERIOD: MMM YYYY – MMM YYYY — additional records needed]. Never silently skip time.
+- DATE VALIDATION: All date ranges must be forward-chronological (start date before end date). If documents show conflicting or ambiguous dates, write [DATE CONFLICT — verify with service records] rather than outputting an invalid range.
+- POSITION CONSOLIDATION: Group multiple evaluation periods at the SAME unit (same location, same organization) into ONE position entry with the full date range. HOWEVER: different duty stations (different cities or countries) are ALWAYS separate entries, even if the MOS or role is similar. Never combine assignments from different locations into a single entry.
+- GS LEVEL TARGETING: For the professional summary, use the correct GS range for the veteran's rank — E-5/E-6: GS-5 to GS-7; E-7/E-8: GS-9 to GS-12; E-9: GS-11 to GS-13; O1-O3: GS-9 to GS-12; O4+: GS-12 to GS-15. For a 20-year E-7, the correct target range is GS-9 to GS-12.
+- DUTY STATION LOCATIONS: Keep real city/state/country for every position. Do not replace geographic locations with invented cities.
+- UNIT DESIGNATIONS: Translate specific unit IDs to general civilian-readable descriptions, but preserve the actual city/state/country.
+- SALARY (federal only): Use military pay equivalent for the rank held (e.g., "E-7, ~$54,000–$62,000/year equivalent"). Never invent specific dollar figures.
+- CERTIFICATIONS: List certification name and year earned only. Do not include expiration status. No physical fitness tests or routine qualifications.
+- EDUCATION: Only include education explicitly confirmed in the documents. Do not add speculative entries.
 - Remove all classified, sensitive, or operationally specific information
 - Use bracketed estimates for unknown metrics [e.g., ~$1.5M–$2M] — never invent exact figures
 - Translate all military terminology to civilian equivalents
-- Use "Separation/Retirement" not "ETS"; "Evaluation Reports" not "NCOER"
 
 Generate the complete, ready-to-use resume now. Format it cleanly with clear section headers using ALL CAPS. Output only the resume — no commentary, no preamble.`;
 
@@ -1281,26 +1277,35 @@ Generate the complete, ready-to-use resume now. Format it cleanly with clear sec
 function setResumeLoading(on, text='') {
   document.getElementById('resumeLoading').classList.toggle('hidden', !on);
   document.getElementById('resumeLoadingText').textContent = text;
-  ['genFedBtn','genPrivBtn','genMasterBtn'].forEach(id => document.getElementById(id).disabled = on);
+  ['tabFed','tabPriv','tabMaster','tabLinkedIn'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.disabled = on;
+  });
+}
+
+function handleResumeTab(type) {
+  showResumeTab(type);
+  if (type === 'linkedin') {
+    if (!state.resumes.linkedin) generateLinkedIn();
+  } else {
+    if (!state.resumes[type]) generateResume(type);
+  }
 }
 
 function showResumeTab(type) {
   state.activeTab = type;
   ['federal','private','master','linkedin'].forEach(t => {
     const btn = document.getElementById('tab' + t.charAt(0).toUpperCase() + t.slice(1));
-    if (btn) btn.classList.toggle('active', t === type);
+    if (!btn) return;
+    btn.classList.toggle('active', t === type);
+    btn.classList.toggle('done', !!state.resumes[t] && t !== type);
   });
   const output = document.getElementById('resumeOutput');
   if (state.resumes[type]) {
     output.textContent = state.resumes[type];
   } else {
-    const placeholder = {
-      federal: 'Click "Generate Federal Resume" to build your USAJOBS-format resume.',
-      private: 'Click "Generate Private Sector Resume" to build your civilian resume.',
-      master: 'Click "Generate Master Resume" to build a comprehensive career inventory.',
-      linkedin: 'Click "LinkedIn Profile" tab again to generate your LinkedIn content.'
-    };
-    output.textContent = placeholder[type] || '';
+    const labels = { federal: 'Federal Resume', private: 'Private Sector', master: 'Master Resume', linkedin: 'LinkedIn Profile' };
+    output.textContent = `Click "${labels[type] || type}" above to generate.`;
   }
 }
 
