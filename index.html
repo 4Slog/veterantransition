@@ -769,9 +769,20 @@ select.form-input{appearance:none;background-image:url("data:image/svg+xml,%3Csv
 
     <div class="resume-output" id="resumeOutput" contenteditable="true">Click a "Generate" button above to build your resume. You can edit this area directly after generation.</div>
 
+    <div id="validationWarnings" class="hidden" style="background:#fff7ed;border:1.5px solid #f97316;border-radius:var(--radius);padding:0.75rem 1rem;margin-top:0.75rem;font-size:0.83rem">
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:0.75rem">
+        <div>
+          <strong style="color:#c2410c">Review before submitting:</strong>
+          <ul id="warningList" style="margin:0.3rem 0 0 1.2rem;padding:0;color:#9a3412;line-height:1.7"></ul>
+        </div>
+        <button onclick="document.getElementById('validationWarnings').classList.add('hidden')" style="background:none;border:none;font-size:1rem;cursor:pointer;color:#c2410c;padding:0;flex-shrink:0;line-height:1">✕</button>
+      </div>
+    </div>
+
     <div class="btn-row">
       <button class="btn btn-outline btn-sm" onclick="goStep(2)">← Back</button>
       <button class="btn btn-primary" onclick="exportPDF()">Print / Save PDF</button>
+      <button class="btn btn-outline" onclick="exportDocx()">Download .docx</button>
       <button class="btn btn-outline" onclick="exportText()">Download .txt</button>
       <button class="btn btn-outline" onclick="copyResume()">Copy to Clipboard</button>
       <button class="btn btn-outline" onclick="saveResume()" style="border-color:var(--gold);color:var(--navy)">Save Resume</button>
@@ -1728,6 +1739,7 @@ No preamble. Generate the master career inventory now.`;
     const text = data.content[0].text;
     state.resumes[type] = text;
     document.getElementById('resumeOutput').textContent = text;
+    validateResume(type, text);
     saveResumesToStorage();
     const label = isMaster ? 'Master career inventory' : isFederal ? 'Federal resume' : 'Private sector resume';
     toast(`${label} generated!`, 'success');
@@ -1772,8 +1784,10 @@ function showResumeTab(type) {
     btn.classList.toggle('done', !!state.resumes[t] && t !== type);
   });
   const output = document.getElementById('resumeOutput');
+  document.getElementById('validationWarnings').classList.add('hidden');
   if (state.resumes[type]) {
     output.textContent = state.resumes[type];
+    validateResume(type, state.resumes[type]);
   } else {
     output.textContent = `Click "${TAB_LABELS[type] || type}" above to generate.`;
   }
@@ -1867,6 +1881,7 @@ No preamble or commentary.`;
     const text = data.content[0].text;
     state.resumes.linkedin = text;
     document.getElementById('resumeOutput').textContent = text;
+    validateResume('linkedin', text);
     saveResumesToStorage();
     toast('LinkedIn profile generated!', 'success');
   } catch(e) {
@@ -2008,6 +2023,7 @@ Generate the complete cover letter now. Cover letter content only — no preambl
     const text = data.content[0].text;
     state.resumes.coverletter = text;
     document.getElementById('resumeOutput').textContent = text;
+    validateResume('coverletter', text);
     saveResumesToStorage();
     toast('Cover letter generated!', 'success');
     if (!reviewPromptShown) { reviewPromptShown = true; setTimeout(openReviewPrompt, 2500); }
@@ -2094,6 +2110,97 @@ function copyResume() {
   navigator.clipboard.writeText(text)
     .then(() => toast('Copied to clipboard!','success'))
     .catch(() => toast('Copy failed — try selecting and copying manually.','error'));
+}
+
+function validateResume(type, text) {
+  const container = document.getElementById('validationWarnings');
+  const list = document.getElementById('warningList');
+  const warnings = [];
+
+  // Unfilled placeholder detection — anything in [brackets] remaining in output
+  const found = [...text.matchAll(/\[([^\]]{2,})\]/g)].map(m => m[1]);
+  if (found.length > 0) {
+    const unique = [...new Set(found)];
+    warnings.push('Unfilled fields: ' + unique.map(p => `[${p}]`).join(', '));
+  }
+
+  // Federal-specific: check for supervisor lines that are still placeholders
+  if (type === 'federal') {
+    if (/supervisor:\s*\[/i.test(text)) warnings.push('Federal resume has unfilled supervisor name(s)');
+    if (/salary:\s*\[|\$\s*\[/i.test(text)) warnings.push('Federal resume has unfilled salary information');
+    if (!/(40 hrs|40 hours|hours per week)/i.test(text)) warnings.push('Federal resume may be missing "hours per week" on experience entries (OPM requirement)');
+  }
+
+  if (warnings.length === 0) { container.classList.add('hidden'); return; }
+  list.innerHTML = warnings.map(w => `<li>${w}</li>`).join('');
+  container.classList.remove('hidden');
+}
+
+async function exportDocx() {
+  const el = document.getElementById('resumeOutput');
+  const text = el.textContent;
+  if (!text || text.startsWith('Click')) { toast('Generate a resume first.', 'error'); return; }
+
+  if (!window.docx) {
+    toast('Loading DOCX library...', '');
+    await new Promise((resolve, reject) => {
+      const s = document.createElement('script');
+      s.src = 'https://unpkg.com/docx@8.5.0/build/index.js';
+      s.onload = resolve;
+      s.onerror = () => reject(new Error('Failed to load DOCX library'));
+      document.head.appendChild(s);
+    });
+  }
+
+  const { Document, Packer, Paragraph, TextRun, HeadingLevel, AlignmentType } = window.docx;
+  const children = [];
+
+  for (const raw of text.split('\n')) {
+    const line = raw.trimEnd();
+    const trimmed = line.trim();
+
+    if (!trimmed) { children.push(new Paragraph('')); continue; }
+
+    // Markdown headings
+    if (trimmed.startsWith('## ')) {
+      children.push(new Paragraph({ text: trimmed.slice(3), heading: HeadingLevel.HEADING_2 })); continue;
+    }
+    if (trimmed.startsWith('# ')) {
+      children.push(new Paragraph({ text: trimmed.slice(2), heading: HeadingLevel.HEADING_1 })); continue;
+    }
+
+    // ALL CAPS section headers (no lowercase letters, at least 4 chars, mostly letters/spaces)
+    if (trimmed.length >= 4 && trimmed === trimmed.toUpperCase() && /^[A-Z][A-Z\s\/&\-–\.,:]+$/.test(trimmed)) {
+      children.push(new Paragraph({ text: trimmed, heading: HeadingLevel.HEADING_2 })); continue;
+    }
+
+    // Horizontal rule / separator
+    if (/^[-—=*]{3,}$/.test(trimmed)) { children.push(new Paragraph('')); continue; }
+
+    // Bullet points
+    if (trimmed.startsWith('• ') || trimmed.startsWith('- ') || trimmed.startsWith('* ')) {
+      children.push(new Paragraph({ text: trimmed.slice(2), bullet: { level: 0 } })); continue;
+    }
+
+    // Bold lines (markdown **text**) — treat as sub-heading
+    if (trimmed.startsWith('**') && trimmed.endsWith('**')) {
+      children.push(new Paragraph({
+        children: [new TextRun({ text: trimmed.slice(2, -2), bold: true })]
+      })); continue;
+    }
+
+    children.push(new Paragraph({ text: trimmed }));
+  }
+
+  const doc = new Document({ sections: [{ properties: {}, children }] });
+  const blob = await Packer.toBlob(doc);
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `veterantransition_${state.activeTab}_${Date.now()}.docx`;
+  a.click();
+  URL.revokeObjectURL(url);
+  toast('DOCX downloaded.', 'success');
 }
 
 // ============================================================
