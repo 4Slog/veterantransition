@@ -1478,16 +1478,15 @@ SCHEMA (follow exactly — no extra fields):
     }
   ],
   "education": [{"degree": null, "major": null, "institution": null, "city": null, "state": null, "year": null}],
-  "militaryEducation": [{"course": null, "completionDate": null}],
   "awards": [{"name": null, "abbreviation": null, "count": 1}],
-  "certifications": [{"name": null, "issuer": null, "dateEarned": null}],
-  "skills": {"technical": [], "leadership": [], "logistics": []},
   "deployments": [{"operation": null, "theater": null, "startDate": null, "endDate": null, "combatZone": true}],
   "meta": {"extractedFrom": [], "completenessScore": 0, "coverageGaps": [], "missingCriticalFields": []}
 }
 
 SERVICE DOCUMENTS:
-${docText.slice(0, 120000)}`;
+${docText.length > 120000
+    ? docText.slice(0, 60000) + '\n\n[... middle content truncated — oldest-to-newest documents may have older NCOERs above and recent NCOERs below ...]\n\n' + docText.slice(-60000)
+    : docText}`;
 
   try {
     const resp = await fetch('/api/chat', {
@@ -1495,7 +1494,7 @@ ${docText.slice(0, 120000)}`;
       headers: { 'content-type': 'application/json' },
       body: JSON.stringify({
         model: 'claude-haiku-4-5-20251001',
-        max_tokens: 6000,
+        max_tokens: 7000,
         messages: [{ role: 'user', content: prompt }]
       })
     });
