@@ -1219,7 +1219,7 @@ Email: ${contactEmail}
 Phone: ${contactPhone}
 Location: ${contactCity}
 
-${docText ? `SERVICE DOCUMENTS:\n${docText.slice(0, isMaster ? 150000 : 24000)}` : ''}
+${docText ? `SERVICE DOCUMENTS:\n${docText.slice(0, isMaster ? 150000 : 50000)}` : ''}
 ${docText ? 'NOTE: Use the service documents as the primary source for dates, positions, accomplishments, and metrics. Extract real details rather than using placeholders where possible.' : ''}
 
 ${rankMosInferredSkills}
@@ -1230,7 +1230,10 @@ UNIVERSAL RULES:
 - CONTACT INFO: Use the exact name/email/phone/location values provided above. Do NOT invent phone numbers, emails, or addresses under any circumstances.
 - DUTY STATION LOCATIONS: Keep real city/state/country for each position (e.g., Fort Wainwright, AK; Seoul, South Korea; Salt Lake City, UT). Do not replace geographic locations with made-up cities.
 - UNIT DESIGNATIONS: Translate specific unit IDs (e.g., "403d AFSB") to general civilian descriptions (e.g., "U.S. Army Forward Logistics Base"), but preserve the actual location.
-- SALARY: For federal resume entries, use [SALARY] as placeholder if not in documents — do not invent dollar figures.
+- SALARY: For federal resume entries, use the military pay equivalent if available; otherwise use [SALARY] as placeholder — do not invent dollar figures.
+- POSITIONS: Consolidate multiple evaluation periods at the same duty station into ONE position entry — do not create a separate job entry for each rating period/NCOER cycle. Show the full date range for that assignment.
+- EDUCATION: Only include education credentials explicitly confirmed in the documents. Do not add speculative entries (e.g., high school diploma) unless the documents state it.
+- CERTIFICATIONS: Only include professional/technical certifications, military schools, and clearances. Do not include physical fitness tests or routine military training qualifications.
 - Remove all classified, sensitive, or operationally specific information
 - If metrics are unknown, use bracketed estimates [e.g., ~$1.5M–$2M] — never invent exact numbers
 - Translate every piece of military terminology to civilian equivalents
