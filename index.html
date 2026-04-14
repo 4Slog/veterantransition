@@ -2115,25 +2115,36 @@ function copyResume() {
 function validateResume(type, text) {
   const container = document.getElementById('validationWarnings');
   const list = document.getElementById('warningList');
-  const warnings = [];
+  const items = []; // { label, find }
 
-  // Unfilled placeholder detection — anything in [brackets] remaining in output
+  // Each unique placeholder becomes its own clickable item
   const found = [...text.matchAll(/\[([^\]]{2,})\]/g)].map(m => m[1]);
   if (found.length > 0) {
-    const unique = [...new Set(found)];
-    warnings.push('Unfilled fields: ' + unique.map(p => `[${p}]`).join(', '));
+    for (const p of [...new Set(found)]) {
+      items.push({ label: `Unfilled: [${p}]`, find: `[${p}]` });
+    }
   }
 
-  // Federal-specific: check for supervisor lines that are still placeholders
   if (type === 'federal') {
-    if (/supervisor:\s*\[/i.test(text)) warnings.push('Federal resume has unfilled supervisor name(s)');
-    if (/salary:\s*\[|\$\s*\[/i.test(text)) warnings.push('Federal resume has unfilled salary information');
-    if (!/(40 hrs|40 hours|hours per week)/i.test(text)) warnings.push('Federal resume may be missing "hours per week" on experience entries (OPM requirement)');
+    if (/supervisor:\s*\[/i.test(text)) items.push({ label: 'Unfilled supervisor name', find: 'Supervisor:' });
+    if (/salary:\s*\[|\$\s*\[/i.test(text)) items.push({ label: 'Unfilled salary', find: 'Salary' });
+    if (!/(40 hrs|40 hours|hours per week)/i.test(text))
+      items.push({ label: 'Missing "hours per week" on experience entries (OPM requirement)', find: null });
   }
 
-  if (warnings.length === 0) { container.classList.add('hidden'); return; }
-  list.innerHTML = warnings.map(w => `<li>${w}</li>`).join('');
+  if (items.length === 0) { container.classList.add('hidden'); return; }
+  list.innerHTML = items.map(item => item.find
+    ? `<li style="cursor:pointer" onclick="jumpToGap(${JSON.stringify(item.find)})" title="Click to jump">
+         ${item.label} <span style="opacity:0.6;font-size:0.78rem">↓ jump</span>
+       </li>`
+    : `<li>${item.label}</li>`
+  ).join('');
   container.classList.remove('hidden');
+}
+
+function jumpToGap(term) {
+  document.getElementById('resumeOutput').focus();
+  window.find(term, false, false, true);
 }
 
 async function exportDocx() {
