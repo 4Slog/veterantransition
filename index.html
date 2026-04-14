@@ -146,8 +146,16 @@ textarea.form-input{resize:vertical;min-height:100px}
 .resume-type-btn{padding:0.5rem 1.1rem;border-radius:8px;font-size:0.86rem;font-weight:600;cursor:pointer;border:1.5px solid var(--border);background:white;color:var(--text-light);transition:all 0.2s;font-family:inherit}
 .resume-type-btn.active{border-color:var(--navy);color:var(--navy);background:#eef2f7}
 .resume-type-btn.done{border-color:#22c55e;color:#15803d}
-.resume-output{background:white;border:1.5px solid var(--border);border-radius:var(--radius);padding:2rem;min-height:500px;font-family:'Georgia',serif;font-size:0.9rem;line-height:1.8;white-space:pre-wrap;outline:none;color:var(--text)}
+.resume-output{background:white;border:1.5px solid var(--border);border-radius:var(--radius);padding:2rem;min-height:500px;font-family:'Georgia',Georgia,serif;font-size:0.9rem;line-height:1.65;outline:none;color:var(--text);overflow-y:auto}
 .resume-output:focus{border-color:var(--navy)}
+.resume-output h1{font-size:1.3rem;font-weight:700;text-align:center;margin:0 0 0.2rem;letter-spacing:0.01em;font-family:'Inter',sans-serif;color:var(--navy-dark)}
+.resume-output h2{font-size:0.88rem;font-weight:700;text-transform:uppercase;letter-spacing:0.08em;border-bottom:1.5px solid var(--navy);color:var(--navy);margin:1.1rem 0 0.45rem;padding-bottom:0.15rem;font-family:'Inter',sans-serif}
+.resume-output h3{font-size:0.9rem;font-weight:700;margin:0.8rem 0 0.1rem;font-family:'Inter',sans-serif;color:var(--text)}
+.resume-output p{margin:0.2rem 0;line-height:1.55}
+.resume-output ul{margin:0.3rem 0 0.3rem 1.15rem;padding:0}
+.resume-output li{margin:0.1rem 0;line-height:1.5}
+.resume-output hr{border:none;border-top:1px solid var(--border);margin:0.6rem 0}
+.resume-output br+br{display:none}
 
 /* Job listings */
 .job-card{border:1.5px solid var(--border);border-radius:var(--radius);padding:1rem;transition:border 0.2s;background:white;margin-bottom:0.75rem}
@@ -295,10 +303,28 @@ select.form-input{appearance:none;background-image:url("data:image/svg+xml,%3Csv
 
 /* Print */
 @media print{
-  .header,.progress-nav,.btn-row,.resume-type-btns,.loading-row,.job-section,.settings-btn,.drawer,.drawer-overlay,.toast-wrap,.footer,.job-ann-toggle,#jobAnnBody{display:none!important}
-  .resume-output{border:none;padding:0;min-height:unset}
-  body{background:white}
-  .card{box-shadow:none;padding:0;border:none}
+  @page{size:letter portrait;margin:0.75in}
+  body,html{background:white!important}
+  .header,.progress-nav,.btn-row,.resume-type-btns,.loading-row,.settings-btn,
+  .drawer,.drawer-overlay,.toast-wrap,.footer,.job-ann-toggle,#jobAnnBody,
+  #validationWarnings,#profileCard,.card-eyebrow,.card-title,.card-sub,
+  .job-section,#insightsSection{display:none!important}
+  .card{box-shadow:none!important;padding:0!important;border:none!important;margin:0!important}
+  .resume-output{border:none!important;padding:0!important;min-height:unset!important;
+    font-size:10.5pt!important;line-height:1.35!important;color:#000!important;
+    font-family:'Times New Roman',Georgia,serif!important;overflow:visible!important}
+  .resume-output h1{font-size:14pt!important;font-family:Arial,sans-serif!important;
+    margin:0 0 2pt!important;color:#000!important;letter-spacing:0!important}
+  .resume-output h2{font-size:9.5pt!important;font-family:Arial,sans-serif!important;
+    margin:8pt 0 2pt!important;color:#000!important;border-bottom:1pt solid #000!important;
+    page-break-after:avoid;letter-spacing:0.05em!important}
+  .resume-output h3{font-size:10pt!important;font-family:Arial,sans-serif!important;
+    margin:5pt 0 1pt!important;page-break-after:avoid;color:#000!important}
+  .resume-output p{margin:1pt 0!important}
+  .resume-output ul{margin-left:11pt!important;margin-top:1pt!important;margin-bottom:2pt!important}
+  .resume-output li{margin:0.5pt 0!important;line-height:1.3!important}
+  .resume-output hr{margin:4pt 0!important;border-top:0.5pt solid #ccc!important}
+  a{color:#000!important;text-decoration:none!important}
 }
 .hidden{display:none!important}
 
@@ -786,6 +812,7 @@ select.form-input{appearance:none;background-image:url("data:image/svg+xml,%3Csv
       <button class="btn btn-outline" onclick="exportText()">Download .txt</button>
       <button class="btn btn-outline" onclick="copyResume()">Copy to Clipboard</button>
       <button class="btn btn-outline" onclick="saveResume()" style="border-color:var(--gold);color:var(--navy)">Save Resume</button>
+      <button class="btn btn-outline" onclick="openFeedback()" style="margin-left:auto;border-color:var(--text-light);color:var(--text-light);font-size:0.8rem">Give Feedback</button>
     </div>
   </div>
 
@@ -829,6 +856,39 @@ select.form-input{appearance:none;background-image:url("data:image/svg+xml,%3Csv
 </div>
 
 </div><!-- /appWrapper -->
+
+<!-- FEEDBACK MODAL -->
+<div id="feedbackGate" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.55);z-index:300;align-items:center;justify-content:center;padding:1rem">
+  <div class="auth-card" style="max-width:460px;width:100%;position:relative">
+    <button onclick="closeFeedback()" style="position:absolute;top:0.85rem;right:1rem;background:none;border:none;font-size:1.2rem;cursor:pointer;color:var(--text-light);line-height:1">✕</button>
+    <div class="card-title" style="margin-bottom:0.2rem;padding-right:2rem">Share your feedback</div>
+    <div style="font-size:0.85rem;color:var(--text-light);margin-bottom:1.25rem">Help improve VeteranTransition. What worked? What should be better?</div>
+
+    <div class="form-group">
+      <label class="form-label">Your email <span style="font-weight:400;color:var(--text-light)">(optional — we may follow up)</span></label>
+      <input class="form-input" id="feedbackEmail" type="email" placeholder="your@email.com">
+    </div>
+
+    <div class="form-group">
+      <label class="form-label">Rating</label>
+      <div id="feedbackStars" style="display:flex;gap:0.4rem;font-size:1.75rem;cursor:pointer;margin-top:0.2rem;user-select:none">
+        <span data-star="1" onclick="setRating(1)">☆</span>
+        <span data-star="2" onclick="setRating(2)">☆</span>
+        <span data-star="3" onclick="setRating(3)">☆</span>
+        <span data-star="4" onclick="setRating(4)">☆</span>
+        <span data-star="5" onclick="setRating(5)">☆</span>
+      </div>
+    </div>
+
+    <div class="form-group">
+      <label class="form-label">Comments <span style="color:var(--error)">*</span></label>
+      <textarea class="form-input" id="feedbackMessage" placeholder="What was most useful? What's missing? Would you recommend this to other veterans?" style="min-height:110px;resize:vertical"></textarea>
+    </div>
+
+    <button class="btn btn-primary" style="width:100%;margin-top:0.25rem" onclick="submitFeedback()">Submit Feedback</button>
+    <div id="feedbackError" class="hidden" style="margin-top:0.6rem;font-size:0.84rem;color:var(--error);text-align:center"></div>
+  </div>
+</div>
 
 <!-- SETTINGS DRAWER -->
 <div class="drawer-overlay" id="drawerOverlay" onclick="closeSettings()"></div>
@@ -1594,7 +1654,7 @@ async function generateResume(type) {
   let prompt;
 
   if (isFederal) {
-    prompt = `You are a federal hiring specialist and USAJOBS-certified resume writer. Generate a complete, OPM-compliant federal resume ready for submission.
+    prompt = `You are a federal hiring specialist and USAJOBS resume writer. Generate a complete, submission-ready federal resume.
 
 CANDIDATE:
 Name: ${contactName} | Phone: ${contactPhone} | Email: ${contactEmail} | Location: ${contactCity}
@@ -1604,46 +1664,69 @@ ${jobAnnSection}
 
 ${sourceContext}
 
-FEDERAL RESUME REQUIREMENTS — OPM MANDATED (non-negotiable):
+OUTPUT FORMAT — use markdown exactly as shown (the app renders this to HTML):
 
-PAGE LIMIT: STRICT 2-PAGE MAXIMUM (OPM mandate effective Sept 27, 2025). Any federal resume over 2 pages is automatically ineligible for Title 5 positions. Strategy:
-- Full detail for most recent 5–7 years
-- Older service → one line: "Additional Military Service: [YYYY–YYYY] | Details available upon request"
+# ${contactName}
+${contactEmail} | ${contactPhone} | ${contactCity}${state.veteransPreference ? ` | ${state.veteransPreference}` : ''}
 
-SPECIALIZED EXPERIENCE STATEMENT (mandatory — #1 eligibility factor):
-Write this at the top of Professional Summary or as a standalone paragraph:
-"I have [X] year(s) of specialized experience equivalent to the GS-[N] level, [mirror exact OPM language from announcement or infer from career track]."
+---
 
-REQUIRED FIELDS PER POSITION (auto-rejection if ANY missing):
-- Exact month/year start AND end dates
-- 40 hours/week (active duty = always 40, no exceptions)
-- Supervisor name + phone (use "[Supervisor Name]" / "[Phone]" if not in documents)
-- Start salary and end salary (rank-equivalent: E-6 ~$47k–$54k, E-7 ~$54k–$62k, E-8 ~$62k–$72k, E-9 ~$72k–$84k)
-- Full organization name (translate unit IDs → civilian descriptions; keep real city/state/country)
-- City, State, Country (ZIP if available)
+## PROFILE
+[3–4 sentence professional summary. First person. Include years of experience, specialty, clearance level, and 1–2 quantified career highlights. Mirror keywords from the job announcement.]
 
-SECTIONS (exact order):
-1. CONTACT INFORMATION (Name, Address, Phone, Email)
-2. VETERANS PREFERENCE & CLEARANCE
-3. SPECIALIZED EXPERIENCE STATEMENT
-4. PROFESSIONAL SUMMARY (3–4 lines, keyword-rich, mirrors announcement)
-5. PROFESSIONAL EXPERIENCE (reverse chronological, most recent first — all required fields)
-6. EDUCATION (degrees + relevant civilian coursework)
-7. MILITARY EDUCATION & TRAINING (NCOES, PME, professional military courses)
-8. CERTIFICATIONS & LICENSES (professional credentials only — EXCLUDE military fitness tests like ACFT/APFT, weapons qualifications like M4/M16/pistol, and physical readiness scores — these are not professional certifications)
-9. SKILLS & COMPETENCIES (mirror announcement keywords verbatim)
+## CORE COMPETENCIES
+- [Hard Skill] • [Hard Skill] • [Hard Skill] • [Hard Skill] • [Hard Skill] • [Hard Skill]
+- [Hard/Leadership Skill] • [Skill] • [Skill] • [Skill] • [Skill] • [Skill]
 
-FORMATTING:
-- Plain text only — no tables, columns, graphics, bold, headers/footers
-- ALL CAPS section headers
-- Each accomplishment bullet: strong action verb + specific detail + quantified result
-- Mirror exact keywords from the job announcement throughout — HR uses keyword scoring
-${state.veteransPreference ? `- Include: "${state.veteransPreference} preference-eligible veteran, DD-214 on file"` : ''}
+## SECURITY CLEARANCE
+**[Level]** | [Active/Inactive] | [Investigation type] | Reinvestigated: [Date if known]
 
-Generate the complete federal resume now. Resume content only — no preamble or commentary.`;
+---
+
+## WORK EXPERIENCE
+
+[Repeat this block for each position — most recent first. Full detail for most recent 5–7 years. Earlier assignments: one line "Additional Service: [YYYY–YYYY] — [Organization], [Role] | Details available upon request".]
+
+### [Civilian Job Title] ([Rank], [Branch of Service])
+**[Full Organization Name]** — [City, State or Country] | [Mon YYYY – Mon YYYY]
+40 hrs/week | Salary: ~$[start]–$[end]/yr | Supervisor: [Full Name], [Title]
+
+[3–4 sentence prose paragraph. Describe role scope, organizational scale (personnel count, asset value, geographic reach), and mission context in civilian language. No acronyms unless defined.]
+
+- [Strong action verb] [specific accomplishment] [quantified result — $, %, headcount, or time]
+- [Most impactful achievement — use largest dollar figure or most significant outcome]
+- [Leadership or scope highlight with metric]
+- [OPM-keyword-rich accomplishment mirroring job announcement language]
+
+---
+
+## EDUCATION
+**[Degree]** | [Institution], [City, State] | [Year]
+
+## MILITARY EDUCATION & TRAINING
+- [Course Name] | [Year]
+[List all courses from documents]
+
+## AWARDS & HONORS
+- [Award Name] × [Count] — [one-line civilian translation of significance]
+
+## SKILLS & COMPETENCIES
+[System] • [System] • [System] • [Skill] • [Skill] • [Skill] • [Skill] • [Skill]
+
+RULES (non-negotiable):
+- 2-PAGE MAXIMUM when printed (10.5pt font, 0.75in margins) — condense older assignments
+- Every position MUST have: exact month/year dates, 40 hrs/week, supervisor name, salary range
+- Supervisor name unknown → use "[Supervisor Name]" as placeholder
+- Salary unknown → estimate by rank: E-5 ~$42k–$48k, E-6 ~$47k–$54k, E-7 ~$54k–$62k, E-8 ~$62k–$72k
+- ALL CAPS section headers in markdown headings ONLY (## SECTION)
+- EXCLUDE from certifications: ACFT/APFT scores, weapons quals (M4, M16, pistol), PT tests
+- Mirror exact keywords from job announcement in bullets and skills section
+${state.veteransPreference ? `- Note veterans preference: "${state.veteransPreference} — DD-214 on file"` : ''}
+
+Generate the complete federal resume now. No preamble, no commentary — output starts with # [Name].`;
 
   } else if (isPrivate) {
-    prompt = `You are an ATS-optimization expert and private sector resume writer. Generate a complete, ATS-optimized private sector resume for a military veteran.
+    prompt = `You are an ATS-optimization expert and private sector resume writer. Generate a complete, ATS-optimized 2-page resume for a military veteran.
 
 CANDIDATE:
 Name: ${contactName} | Phone: ${contactPhone} | Email: ${contactEmail} | Location: ${contactCity}
@@ -1652,39 +1735,54 @@ ${jobAnnSection}
 
 ${sourceContext}
 
-PRIVATE SECTOR RESUME REQUIREMENTS:
+OUTPUT FORMAT — use markdown exactly as shown (the app renders this to HTML):
 
-PAGE LIMIT: MAXIMUM 2 PAGES — hard ceiling, never exceed
+# ${contactName}
+${contactEmail} | ${contactPhone} | ${contactCity}
 
-ATS CRITICAL: Contact info MUST be in document body (not header/footer — parsers skip headers/footers on most ATS platforms including Taleo, iCIMS, Workday).
+---
 
-SECTIONS (exact order — this sequence is optimized for 2025 ATS scoring):
-1. CONTACT (in body): Name | City, State | Phone | Email
-2. PROFESSIONAL SUMMARY (2–3 lines — tight value proposition, no clichés)
-3. CORE COMPETENCIES (place BEFORE experience — 2025 ATS shift; dedicated skills section scores higher)
-   - 8–12 skills, hard:soft ratio 60:40
-   - Every priority keyword appears here AND in experience section
-   - Target 65–75% keyword match with job posting (above 75% = over-optimization flag)
-4. PROFESSIONAL EXPERIENCE (reverse chronological)
-   [CIVILIAN JOB TITLE] | [Organization type — NO unit numbers/IDs] | [City, State] | [Mon YYYY – Mon YYYY]
-   Bullet format — XYZ: "Accomplished [X] as measured by [Y] by doing [Z]"
-   Every bullet must have a quantified metric (%, $, headcount, time saved)
-5. EDUCATION
-6. CERTIFICATIONS (relevant professional certs only)
+## PROFILE
+[2–3 sentence tight value proposition. No clichés ("results-driven", "dynamic"). Lead with years + specialty + biggest career metric. Civilian language only.]
 
-MILITARY TRANSLATION — MANDATORY (ATS and hiring managers penalize jargon):
-- Strip ALL military acronyms — spell out every term or use civilian equivalent
-- Use civilianTitle from profile for every duty title
-- Replace "commanded/ordered" → "led/directed/coordinated"
-- Replace "Responsible for..." → start with strong action verb
-- Collaborative language throughout: "partnered", "coordinated", "built consensus"
-- No rank abbreviations — use civilian leadership tier (Senior Manager, Operations Supervisor)
-- Culture-fit matters: private-sector hiring managers worry veterans are rigid/hierarchical — demonstrate adaptability and consensus-driven decision-making
-- Workday ATS weights job title similarity heavily — ensure job titles clearly match target role
+## CORE COMPETENCIES
+[Skill] • [Skill] • [Skill] • [Skill] • [Skill] • [Skill] • [Skill] • [Skill] • [Skill] • [Skill]
 
-Do NOT include: hours/week, supervisor contact, salary history (federal-only fields)
+---
 
-Generate the complete private sector resume now. Resume content only — no preamble or commentary.`;
+## PROFESSIONAL EXPERIENCE
+
+### [Civilian Job Title]
+**[Organization Type — NO unit numbers or military designations]** | [City, State] | [Mon YYYY – Mon YYYY]
+
+[2–3 sentence role description: scope, team size, asset value, civilian business context.]
+
+- [Accomplished X as measured by Y by doing Z — quantified metric required]
+- [Metric-backed achievement — $, %, time saved, headcount]
+- [Leadership or cross-functional scope achievement]
+
+[Repeat for each role — most recent 3–4 in full, older roles condensed to 1–2 bullets]
+
+---
+
+## EDUCATION
+**[Degree]** | [Institution] | [Year]
+
+## CERTIFICATIONS & TRAINING
+- [Relevant professional cert or course] | [Year]
+
+RULES (non-negotiable):
+- 2-PAGE MAXIMUM when printed (10.5pt, 0.75in margins) — cut bullets before adding length
+- ATS: contact info in document body (not header/footer) — already placed above, keep it there
+- Strip ALL military jargon — spell out every term or use civilian equivalent
+- No rank abbreviations — use civilian tier: Operations Manager, Senior Logistics Specialist
+- No unit numbers/IDs in org names — use "U.S. Army" or "Department of Defense" style
+- Every bullet must have a quantified metric (%, $, headcount, or time)
+- Skills appear both in Core Competencies AND in experience bullets (ATS keyword matching)
+- Do NOT include: hours/week, supervisor contact, salary, security clearance (unless relevant to target role)
+- Culture-fit language: "partnered", "collaborated", "built consensus" — not "commanded", "ordered"
+
+Generate the complete private sector resume now. No preamble — output starts with # [Name].`;
 
   } else { // master
     prompt = `You are a master resume architect. Generate a concise master career inventory — the veteran's source document for building targeted resumes. Every assignment must appear; each gets 2–4 bullets. Be dense and factual, no padding.
@@ -1738,8 +1836,7 @@ No preamble. Generate the master career inventory now.`;
     const data = await resp.json();
     const text = data.content[0].text;
     state.resumes[type] = text;
-    document.getElementById('resumeOutput').textContent = text;
-    validateResume(type, text);
+    displayResume(type, text);
     saveResumesToStorage();
     const label = isMaster ? 'Master career inventory' : isFederal ? 'Federal resume' : 'Private sector resume';
     toast(`${label} generated!`, 'success');
@@ -1783,13 +1880,11 @@ function showResumeTab(type) {
     btn.classList.toggle('active', t === type);
     btn.classList.toggle('done', !!state.resumes[t] && t !== type);
   });
-  const output = document.getElementById('resumeOutput');
   document.getElementById('validationWarnings').classList.add('hidden');
   if (state.resumes[type]) {
-    output.textContent = state.resumes[type];
-    validateResume(type, state.resumes[type]);
+    displayResume(type, state.resumes[type]);
   } else {
-    output.textContent = `Click "${TAB_LABELS[type] || type}" above to generate.`;
+    document.getElementById('resumeOutput').innerHTML = `<p style="color:var(--text-light)">Click "<strong>${TAB_LABELS[type] || type}</strong>" above to generate.</p>`;
   }
 }
 
@@ -1880,8 +1975,7 @@ No preamble or commentary.`;
     const data = await resp.json();
     const text = data.content[0].text;
     state.resumes.linkedin = text;
-    document.getElementById('resumeOutput').textContent = text;
-    validateResume('linkedin', text);
+    displayResume('linkedin', text);
     saveResumesToStorage();
     toast('LinkedIn profile generated!', 'success');
   } catch(e) {
@@ -2022,8 +2116,7 @@ Generate the complete cover letter now. Cover letter content only — no preambl
     const data = await resp.json();
     const text = data.content[0].text;
     state.resumes.coverletter = text;
-    document.getElementById('resumeOutput').textContent = text;
-    validateResume('coverletter', text);
+    displayResume('coverletter', text);
     saveResumesToStorage();
     toast('Cover letter generated!', 'success');
     if (!reviewPromptShown) { reviewPromptShown = true; setTimeout(openReviewPrompt, 2500); }
@@ -2092,7 +2185,7 @@ function showJobsFallback(title) {
 function exportPDF() { window.print(); }
 
 function exportText() {
-  const text = document.getElementById('resumeOutput').textContent;
+  const text = document.getElementById('resumeOutput').innerText;
   if (!text || text.startsWith('Click')) { toast('Generate a resume first.','error'); return; }
   const blob = new Blob([text], { type: 'text/plain' });
   const url = URL.createObjectURL(blob);
@@ -2105,11 +2198,66 @@ function exportText() {
 }
 
 function copyResume() {
-  const text = document.getElementById('resumeOutput').textContent;
+  const text = document.getElementById('resumeOutput').innerText;
   if (!text || text.startsWith('Click')) { toast('Generate a resume first.','error'); return; }
   navigator.clipboard.writeText(text)
     .then(() => toast('Copied to clipboard!','success'))
     .catch(() => toast('Copy failed — try selecting and copying manually.','error'));
+}
+
+// ============================================================
+// RESUME HTML RENDERER
+// ============================================================
+function resumeTextToHTML(text) {
+  if (!text) return '';
+  const lines = text.split('\n');
+  let html = '';
+  let inList = false;
+
+  function closeList() { if (inList) { html += '</ul>'; inList = false; } }
+  function esc(s) { return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+  function inline(s) {
+    return esc(s)
+      .replace(/\*\*([^*\n]+)\*\*/g,'<strong>$1</strong>')
+      .replace(/\*([^*\n]+)\*/g,'<em>$1</em>');
+  }
+
+  for (const raw of lines) {
+    const t = raw.trim();
+
+    if (!t) { closeList(); html += '<br>'; continue; }
+
+    if (t.startsWith('# '))   { closeList(); html += `<h1>${inline(t.slice(2))}</h1>`; continue; }
+    if (t.startsWith('## '))  { closeList(); html += `<h2>${inline(t.slice(3))}</h2>`; continue; }
+    if (t.startsWith('### ')) { closeList(); html += `<h3>${inline(t.slice(4))}</h3>`; continue; }
+
+    // ALL CAPS section header (no commas — avoids matching "LAST, FIRST" names)
+    if (t.length >= 4 && t === t.toUpperCase() && /^[A-Z][A-Z\s\/&\-–\.]+$/.test(t)) {
+      closeList(); html += `<h2>${esc(t)}</h2>`; continue;
+    }
+
+    if (/^[-—=*]{3,}$/.test(t)) { closeList(); html += '<hr>'; continue; }
+
+    if (t.startsWith('• ') || t.startsWith('- ') || t.startsWith('* ') || t.startsWith('⊕ ')) {
+      if (!inList) { html += '<ul>'; inList = true; }
+      html += `<li>${inline(t.slice(2))}</li>`; continue;
+    }
+
+    closeList();
+    html += `<p>${inline(t)}</p>`;
+  }
+  closeList();
+  return html;
+}
+
+function displayResume(type, rawText) {
+  const el = document.getElementById('resumeOutput');
+  if (!rawText || rawText.startsWith('Click') || rawText.startsWith('Re-extract') || rawText.startsWith('Career profile')) {
+    el.textContent = rawText || '';
+    return;
+  }
+  el.innerHTML = resumeTextToHTML(rawText);
+  validateResume(type, rawText);
 }
 
 function validateResume(type, text) {
@@ -2625,7 +2773,7 @@ async function signOut() { await sbClient.auth.signOut(); }
 // RESUME SAVE / LOAD
 // ============================================================
 async function saveResume() {
-  const content = document.getElementById('resumeOutput').textContent.trim();
+  const content = document.getElementById('resumeOutput').innerText.trim();
   if (!content || content.startsWith('Click')) { toast('Generate a resume first.', 'error'); return; }
   const { data: { session } } = await sbClient.auth.getSession();
   const title = `${state.mos || 'Resume'} — ${state.selectedTrack?.title || 'General'} — ${TAB_LABELS[state.activeTab] || state.activeTab}`;
@@ -2664,7 +2812,7 @@ async function loadSavedResumes() {
 function viewSavedResume(id) {
   const content = savedResumesCache[id];
   if (!content) return;
-  document.getElementById('resumeOutput').textContent = content;
+  displayResume(state.activeTab, content);
   closeSettings();
   goStep(3);
 }
@@ -2685,6 +2833,59 @@ async function deleteResume(id) {
   const resp = await fetch(`/api/resumes/delete?id=${id}`, { method: 'DELETE', headers: { 'Authorization': 'Bearer ' + session.access_token } });
   if (resp.ok) { toast('Deleted.', 'success'); loadSavedResumes(); }
   else toast('Delete failed.', 'error');
+}
+
+// ============================================================
+// FEEDBACK
+// ============================================================
+let feedbackRating = 0;
+
+function openFeedback() {
+  document.getElementById('feedbackEmail').value = currentUser?.email || '';
+  feedbackRating = 0;
+  updateStars(0);
+  document.getElementById('feedbackMessage').value = '';
+  document.getElementById('feedbackError').classList.add('hidden');
+  document.getElementById('feedbackGate').style.display = 'flex';
+}
+
+function closeFeedback() {
+  document.getElementById('feedbackGate').style.display = 'none';
+}
+
+function setRating(n) {
+  feedbackRating = n;
+  updateStars(n);
+}
+
+function updateStars(n) {
+  document.querySelectorAll('#feedbackStars span').forEach((s, i) => {
+    s.textContent = i < n ? '★' : '☆';
+    s.style.color = i < n ? 'var(--gold)' : 'var(--text-light)';
+  });
+}
+
+async function submitFeedback() {
+  const email = document.getElementById('feedbackEmail').value.trim();
+  const message = document.getElementById('feedbackMessage').value.trim();
+  const errEl = document.getElementById('feedbackError');
+  errEl.classList.add('hidden');
+  if (!message) { errEl.textContent = 'Please add a comment before submitting.'; errEl.classList.remove('hidden'); return; }
+  const btn = document.querySelector('#feedbackGate .btn-primary');
+  btn.disabled = true; btn.textContent = 'Submitting...';
+  try {
+    const resp = await fetch('/api/feedback', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email: email || null, message, rating: feedbackRating || null,
+        resume_type: state.activeTab, page_url: window.location.href })
+    });
+    if (!resp.ok) throw new Error();
+    closeFeedback();
+    toast('Thank you — feedback received!', 'success');
+  } catch {
+    errEl.textContent = 'Submission failed. Please try again.'; errEl.classList.remove('hidden');
+  } finally { btn.disabled = false; btn.textContent = 'Submit Feedback'; }
 }
 
 // ============================================================
