@@ -1568,10 +1568,13 @@ async function generateResume(type) {
   const allDocs = state.documents.slice().reverse().map(d => `=== ${d.name} ===\n${d.text}`).join('\n\n');
   const rawDocText = [allDocs, pasteText].filter(Boolean).join('\n\n');
   const profileJSON = profile ? JSON.stringify(profile, null, 2) : null;
-  const rawDocLimit = isMaster ? 120000 : 50000;
+  // For master: take first+last 30K to capture both early career and recent assignments
+  const rawDocSlice = isMaster && rawDocText.length > 60000
+    ? rawDocText.slice(0, 30000) + '\n\n[... middle content truncated — recent assignments continue below ...]\n\n' + rawDocText.slice(-30000)
+    : rawDocText.slice(0, isMaster ? 60000 : 30000);
   const sourceContext = profileJSON
-    ? `CAREER PROFILE (metadata: dates, titles, locations, metrics — use for structure):\n${profileJSON}\n\nSERVICE DOCUMENTS (full text — use for accomplishment details, evaluator quotes, and narrative content):\n${rawDocText.slice(0, rawDocLimit)}`
-    : (rawDocText ? `SERVICE DOCUMENTS:\n${rawDocText.slice(0, rawDocLimit)}` : 'No documents provided.');
+    ? `CAREER PROFILE (metadata: dates, titles, locations, metrics — use for structure):\n${profileJSON}\n\nSERVICE DOCUMENTS (full text — use for accomplishment details, evaluator quotes, and narrative content):\n${rawDocSlice}`
+    : (rawDocText ? `SERVICE DOCUMENTS:\n${rawDocSlice}` : 'No documents provided.');
 
   const jobAnnSection = state.jobAnnouncement
     ? `\nTARGET JOB ANNOUNCEMENT (mirror exact keywords, KSAs, and OPM language — HR scores against this verbatim):\n${state.jobAnnouncement.slice(0, 3000)}`
@@ -1673,7 +1676,7 @@ Do NOT include: hours/week, supervisor contact, salary history (federal-only fie
 Generate the complete private sector resume now. Resume content only — no preamble or commentary.`;
 
   } else { // master
-    prompt = `You are a master resume architect. Generate a comprehensive master career inventory — this is NOT a submission document, it is a complete career archive with no length limit.
+    prompt = `You are a master resume architect. Generate a concise master career inventory — the veteran's source document for building targeted resumes. Every assignment must appear; each gets 2–4 bullets. Be dense and factual, no padding.
 
 CANDIDATE:
 Name: ${contactName} | Phone: ${contactPhone} | Email: ${contactEmail} | Location: ${contactCity}
@@ -1682,44 +1685,28 @@ ${jobAnnSection}
 
 ${sourceContext}
 
-MASTER RESUME PURPOSE: Complete career inventory the veteran uses as the source for all targeted resumes. Include EVERYTHING — no omissions, no length limit, no truncation.
+STRUCTURE (follow exactly — keep each section tight):
 
-STRUCTURE:
-1. CONTACT INFORMATION (complete — name, full address, phone, email)
-2. PROFESSIONAL SUMMARY (4–6 lines — comprehensive career overview)
-3. SECURITY CLEARANCE (level, status, investigation type, polygraph if applicable)
-4. CORE COMPETENCIES (categorized: Leadership | Technical | Administrative | Systems & Tools)
+1. CONTACT INFORMATION (Name, Address, Phone, Email)
+2. PROFESSIONAL SUMMARY (3 lines max — branch, years, specialty, clearance, key credential)
+3. SECURITY CLEARANCE (level | status | investigation type)
+4. CORE COMPETENCIES (two rows, 6 items each — hard skills first, leadership second)
 
-5. PROFESSIONAL EXPERIENCE — EXPAND ALL
-For each assignment in chronological order (oldest first):
+5. PROFESSIONAL EXPERIENCE (oldest → newest; one block per rating period in the career profile)
+Format per assignment:
+[Civilian Equivalent Title] | [Organization, plain English] | [City, State/Country] | [MMM YYYY – MMM YYYY]
+Pay: [payGrade] ~$[salaryStart]–$[salaryEnd] | 40 hrs/wk | Supervisor: [name], [title]
+• [Action verb + result + metric — draw from keyMetrics in profile and raw docs]
+• [2nd bullet — most impactful accomplishment with $ or % figure]
+• [3rd bullet — scope or leadership highlight; include evaluator quote if exceptional]
 
-[UNIT DESIGNATION | LOCATION | FULL DATE RANGE]
-Duty Title: [dutyTitle] | Civilian Equivalent: [civilianTitle]
-Scope: [unit size, budget, geographic scope from profile]
-Supervisor: [name/title] | Phone: [phone] | May Contact: Yes
-Hours/Week: 40 | Salary Equivalent: [payGrade range]
+6. EDUCATION (degree | institution | year)
+7. MILITARY EDUCATION (course | school | year — list all from documents)
+8. AWARDS (Name x[count] | brief civilian translation)
+9. DEPLOYMENTS (operation | theater | dates | combat zone yes/no)
+10. SKILLS (technical systems, software, languages — all from documents)
 
-ACCOMPLISHMENTS (use CCAR structure):
-• [federalTranslation from profile — start with action verb, include all metrics]
-  [If rawMilitary is available and the evaluator used notable language, quote it verbatim]
-
-Evaluator Notable Language: "[rawMilitary verbatim quote of top-tier evaluation language]"
-
-6. EDUCATION (all degrees + institution + year + GPA if strong)
-7. MILITARY EDUCATION & TRAINING (every NCOES, PME, professional course, ASI/SQI earned, languages)
-8. AWARDS & COMMENDATIONS
-   [Award Name] ([abbreviation]) — [count] — [dates]
-   Civilian Translation: [civilianTranslation from profile]
-9. DEPLOYMENTS & COMBAT SERVICE
-   [operation] | [theater] | [startDate–endDate] | [role] | Combat Zone: [yes/no]
-10. COMPLETE SKILLS INVENTORY (all technical skills, systems, equipment, languages)
-
-FLAG THESE IN OUTPUT (don't hide them):
-- Date conflicts: note "[DATE CONFLICT — verify with records]"
-- Coverage gaps: note "[UNDOCUMENTED PERIOD: MMM YYYY–MMM YYYY]"
-- Low-confidence fields: note "[ESTIMATED — verify]"
-
-Generate the complete master career inventory now. No preamble or commentary.`;
+No preamble. Generate the master career inventory now.`;
   }
 
   // Pass 2: Generate resume from structured profile
@@ -1728,8 +1715,8 @@ Generate the complete master career inventory now. No preamble or commentary.`;
       method: 'POST',
       headers: { 'content-type': 'application/json' },
       body: JSON.stringify({
-        model: 'claude-sonnet-4-6',
-        max_tokens: isMaster ? 10000 : isFederal ? 6000 : 4000,
+        model: 'claude-haiku-4-5-20251001',
+        max_tokens: isMaster ? 4000 : isFederal ? 3500 : 3000,
         messages: [{ role: 'user', content: prompt }]
       })
     });
@@ -1811,8 +1798,8 @@ async function generateLinkedIn() {
   const allDocs = state.documents.slice().reverse().map(d => `=== ${d.name} ===\n${d.text}`).join('\n\n');
   const rawDocText = [allDocs, pasteText].filter(Boolean).join('\n\n');
   const sourceContext = profileJSON
-    ? `CAREER PROFILE (metadata: dates, titles, metrics):\n${profileJSON}\n\nSERVICE DOCUMENTS (accomplishment detail):\n${rawDocText.slice(0, 50000)}`
-    : (rawDocText ? `SERVICE DOCUMENTS:\n${rawDocText.slice(0, 50000)}` : '');
+    ? `CAREER PROFILE (metadata: dates, titles, metrics):\n${profileJSON}\n\nSERVICE DOCUMENTS (accomplishment detail):\n${rawDocText.slice(0, 20000)}`
+    : (rawDocText ? `SERVICE DOCUMENTS:\n${rawDocText.slice(0, 20000)}` : '');
   const jobAnnSection = state.jobAnnouncement
     ? `\nTARGET ROLE — tailor keywords, headline, and About to this:\n${state.jobAnnouncement.slice(0, 2000)}`
     : `\nTarget Career Track: ${track.title} (${track.gs})`;
@@ -1870,8 +1857,8 @@ No preamble or commentary.`;
       method: 'POST',
       headers: { 'content-type': 'application/json' },
       body: JSON.stringify({
-        model: 'claude-sonnet-4-6',
-        max_tokens: 4000,
+        model: 'claude-haiku-4-5-20251001',
+        max_tokens: 2000,
         messages: [{ role: 'user', content: prompt }]
       })
     });
@@ -1915,8 +1902,8 @@ async function generateCoverLetter() {
   const allDocs = state.documents.slice().reverse().map(d => `=== ${d.name} ===\n${d.text}`).join('\n\n');
   const rawDocText = [allDocs, pasteText].filter(Boolean).join('\n\n');
   const sourceContext = profileJSON
-    ? `CAREER PROFILE (metadata):\n${profileJSON}\n\nSERVICE DOCUMENTS (detail):\n${rawDocText.slice(0, 30000)}`
-    : (rawDocText ? `SERVICE DOCUMENTS:\n${rawDocText.slice(0, 30000)}` : '');
+    ? `CAREER PROFILE (metadata):\n${profileJSON}\n\nSERVICE DOCUMENTS (detail):\n${rawDocText.slice(0, 20000)}`
+    : (rawDocText ? `SERVICE DOCUMENTS:\n${rawDocText.slice(0, 20000)}` : '');
   const jobSection = state.jobAnnouncement
     ? `TARGET JOB:\n${state.jobAnnouncement.slice(0, 2500)}`
     : `Target Career Track: ${track.title} (${track.gs})`;
@@ -2011,7 +1998,7 @@ Generate the complete cover letter now. Cover letter content only — no preambl
       method: 'POST',
       headers: { 'content-type': 'application/json' },
       body: JSON.stringify({
-        model: 'claude-sonnet-4-6',
+        model: 'claude-haiku-4-5-20251001',
         max_tokens: 2000,
         messages: [{ role: 'user', content: prompt }]
       })
