@@ -347,6 +347,7 @@ select.form-input{appearance:none;background-image:url("data:image/svg+xml,%3Csv
   .resume-output li{margin:0.5pt 0!important;line-height:1.3!important}
   .resume-output hr{margin:4pt 0!important;border-top:0.5pt solid #ccc!important}
   a{color:#000!important;text-decoration:none!important}
+  .regen-btn{display:none!important}
 }
 .hidden{display:none!important}
 
@@ -1037,7 +1038,7 @@ let state = {
   veteransPreference: '', jobAnnouncement: '',
   resumes: { federal: '', private: '', master: '', linkedin: '', coverletter: '' },
   careerProfile: null,
-  activeTab: 'federal', step: 1, contact: {}
+  activeTab: 'federal', step: 1, contact: {}, _noDocsWarned: false
 };
 
 let scanState = {};
@@ -1327,9 +1328,11 @@ function showHome() {
       <div class="home-action-desc">${hasResumes ? 'View and edit your generated resumes.' : 'Your profile is ready — generate your resumes now.'}</div>
     </div>`);
   }
-  cards.push(`<div class="home-action-card" onclick="goStep(1)">
+  const freshLabel = hasProfile || hasResumes ? 'Start Fresh' : 'Get Started';
+  const freshOnclick = hasProfile || hasResumes ? 'startFresh()' : 'goStep(1)';
+  cards.push(`<div class="home-action-card" onclick="${freshOnclick}">
     <div class="home-action-icon">📄</div>
-    <div class="home-action-title">${hasProfile || hasResumes ? 'Start Fresh' : 'Get Started'}</div>
+    <div class="home-action-title">${freshLabel}</div>
     <div class="home-action-desc">Upload service documents and build a new resume from scratch.</div>
   </div>`);
   actions.innerHTML = cards.join('');
@@ -1338,6 +1341,50 @@ function showHome() {
 // ============================================================
 // STEP NAVIGATION
 // ============================================================
+function startFresh() {
+  if (!confirm('This will clear your career profile and all generated resumes.\n\nSaved resumes in your account are not affected.\n\nContinue?')) return;
+
+  // Clear in-memory state
+  state.documents = [];
+  state.careerProfile = null;
+  state.resumes = { federal: '', private: '', master: '', linkedin: '', coverletter: '' };
+  state.activeTab = 'federal';
+  state.branch = null;
+  state.mos = '';
+  state.mosData = null;
+
+  // Clear localStorage
+  localStorage.removeItem('veterantransition_resumes');
+  localStorage.removeItem('veterantransition_profile');
+
+  // Reset Step 2 form fields
+  ['mosInput','rankInput','yearsInput','clearanceInput','educationInput','veteransPreferenceInput','locationInput','additionalInput'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.value = '';
+  });
+  document.querySelectorAll('.branch-card').forEach(c => c.classList.remove('selected'));
+
+  // Reset resume tab badges
+  Object.values(TAB_IDS).forEach(id => {
+    const btn = document.getElementById(id);
+    if (btn) { btn.classList.remove('done','active'); }
+  });
+  const fedBtn = document.getElementById('tabFed');
+  if (fedBtn) fedBtn.classList.add('active');
+
+  // Clear doc chips + scan UI
+  document.getElementById('docChips').innerHTML = '';
+  document.getElementById('scanProgress').classList.add('hidden');
+  scanState = {}; scanTotal = 0; scanDone = 0;
+
+  // Reset no-docs warning
+  state._noDocsWarned = false;
+  const noDocsEl = document.getElementById('noDocsWarning');
+  if (noDocsEl) noDocsEl.remove();
+
+  goStep(1);
+}
+
 function goStep(n) {
   state.step = n;
   document.getElementById('homeScreen').classList.add('hidden');
@@ -1366,9 +1413,8 @@ function renderStep(n) {
       if (type === state.activeTab) btn.classList.add('active');
       else if (state.resumes[type]) btn.classList.add('done');
     });
-    const output = document.getElementById('resumeOutput');
-    if (output && state.resumes[state.activeTab]) {
-      output.textContent = state.resumes[state.activeTab];
+    if (state.resumes[state.activeTab]) {
+      displayResume(state.activeTab, state.resumes[state.activeTab]);
     }
     updateProfileCard(state.careerProfile ? 'ready' : 'none', state.careerProfile);
   }
@@ -1972,6 +2018,12 @@ function setResumeLoading(on, text='') {
 }
 
 function handleResumeTab(type) {
+  // Warn once if no source material
+  const hasDocs = state.documents.length > 0 || (document.getElementById('pasteText')?.value || '').trim().length > 0;
+  if (!hasDocs && !state._noDocsWarned) {
+    state._noDocsWarned = true;
+    showNoDocsWarning();
+  }
   showResumeTab(type);
   if (type === 'linkedin') {
     if (!state.resumes.linkedin) generateLinkedIn();
@@ -1980,6 +2032,18 @@ function handleResumeTab(type) {
   } else {
     if (!state.resumes[type]) generateResume(type);
   }
+}
+
+function showNoDocsWarning() {
+  const existing = document.getElementById('noDocsWarning');
+  if (existing) return;
+  const el = document.createElement('div');
+  el.id = 'noDocsWarning';
+  el.style.cssText = 'background:#fefce8;border:1.5px solid #f59e0b;border-radius:8px;padding:0.65rem 1rem;margin-bottom:0.75rem;font-size:0.84rem;display:flex;justify-content:space-between;align-items:flex-start;gap:0.75rem';
+  el.innerHTML = `<span>⚠️ <strong>No documents uploaded.</strong> Your resume will be generic without service records. <a href="#" onclick="goStep(1);return false" style="color:var(--navy-light);font-weight:600">Upload documents</a> for a complete resume.</span>
+    <button onclick="document.getElementById('noDocsWarning').remove()" style="background:none;border:none;cursor:pointer;color:var(--text-light);font-size:1rem;line-height:1;padding:0;flex-shrink:0">✕</button>`;
+  const output = document.getElementById('resumeOutput');
+  output.parentNode.insertBefore(el, output);
 }
 
 function showResumeTab(type) {
@@ -2379,7 +2443,94 @@ function displayResume(type, rawText) {
     return;
   }
   el.innerHTML = resumeTextToHTML(rawText);
+  injectRegenButtons(type);
   validateResume(type, rawText);
+}
+
+function injectRegenButtons(type) {
+  const el = document.getElementById('resumeOutput');
+  el.querySelectorAll('h2').forEach(h2 => {
+    if (h2.querySelector('.regen-btn')) return; // already injected
+    const sectionName = h2.textContent.trim();
+    const btn = document.createElement('button');
+    btn.className = 'regen-btn';
+    btn.title = 'Regenerate this section';
+    btn.textContent = '↻';
+    btn.style.cssText = 'float:right;background:none;border:1px solid var(--border);border-radius:5px;padding:0.1rem 0.4rem;font-size:0.75rem;cursor:pointer;color:var(--text-light);opacity:0;transition:opacity 0.15s;margin-top:0.1rem;line-height:1.4;font-family:inherit';
+    btn.onclick = (e) => { e.stopPropagation(); regenSection(type, sectionName, h2); };
+    h2.addEventListener('mouseenter', () => btn.style.opacity = '1');
+    h2.addEventListener('mouseleave', () => { if (!btn.dataset.loading) btn.style.opacity = '0'; });
+    h2.prepend(btn);
+  });
+}
+
+async function regenSection(type, sectionName, h2El) {
+  const btn = h2El.querySelector('.regen-btn');
+  if (btn) { btn.dataset.loading = '1'; btn.style.opacity = '1'; btn.textContent = '…'; }
+
+  const profile = state.careerProfile;
+  const profileJSON = profile ? JSON.stringify(profile, null, 2) : null;
+  const pasteText = document.getElementById('pasteText').value;
+  const allDocs = state.documents.slice().reverse().map(d => `=== ${d.name} ===\n${d.text}`).join('\n\n');
+  const rawDocText = [allDocs, pasteText].filter(Boolean).join('\n\n');
+  const sourceContext = profileJSON
+    ? `CAREER PROFILE:\n${profileJSON}\n\nSERVICE DOCUMENTS:\n${rawDocText.slice(0, 20000)}`
+    : (rawDocText ? `SERVICE DOCUMENTS:\n${rawDocText.slice(0, 20000)}` : '');
+  const jobSection = state.jobAnnouncement ? `TARGET JOB:\n${state.jobAnnouncement.slice(0, 1500)}` : '';
+  const contact = state.contact;
+  const resumeType = type === 'federal' ? 'federal USAJOBS' : type === 'private' ? 'private sector' : type;
+
+  const prompt = `You are rewriting ONE section of a ${resumeType} resume for a military veteran.
+
+${sourceContext}
+${jobSection}
+
+Rewrite ONLY the "${sectionName}" section. Output just the section content — start with the ## header line, end after the last line of that section. No other sections, no preamble, no commentary.
+
+Contact: ${contact.name || ''} | ${contact.email || ''} | ${contact.city || ''}
+
+Keep the same markdown format as a ${resumeType} resume uses for this section type.`;
+
+  try {
+    const resp = await fetch('/api/chat', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ model: 'claude-haiku-4-5-20251001', max_tokens: 1000, messages: [{ role: 'user', content: prompt }] })
+    });
+    if (!resp.ok) throw new Error('API error');
+    const data = await resp.json();
+    const newText = data.content[0].text.trim();
+
+    // Replace this section's HTML in the rendered output
+    const newHtml = resumeTextToHTML(newText);
+    const tempDiv = document.createElement('div');
+    tempDiv.innerHTML = newHtml;
+    const newH2 = tempDiv.querySelector('h2');
+
+    // Collect all nodes from current h2 to next h2 (or end) and replace them
+    const parent = h2El.parentNode;
+    let node = h2El.nextSibling;
+    while (node && !(node.nodeName === 'H2')) {
+      const next = node.nextSibling;
+      parent.removeChild(node);
+      node = next;
+    }
+    // Replace the h2 itself with new section nodes
+    const fragment = document.createDocumentFragment();
+    while (tempDiv.firstChild) fragment.appendChild(tempDiv.firstChild);
+    parent.replaceChild(fragment, h2El);
+
+    // Update raw text in state — replace the section
+    const sectionRegex = new RegExp(`(^|\\n)(##\\s*${sectionName.replace(/[.*+?^${}()|[\]\\]/g,'\\$&')}[^\\n]*)([\\s\\S]*?)(?=\\n##\\s|$)`, 'i');
+    state.resumes[type] = state.resumes[type].replace(sectionRegex, '\n' + newText + '\n');
+    saveResumesToStorage();
+
+    injectRegenButtons(type);
+    toast(`${sectionName} regenerated`, 'success');
+  } catch(e) {
+    toast('Regeneration failed: ' + e.message, 'error');
+    if (btn) { delete btn.dataset.loading; btn.textContent = '↻'; btn.style.opacity = '0'; }
+  }
 }
 
 function validateResume(type, text) {
