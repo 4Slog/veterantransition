@@ -2860,11 +2860,23 @@ function closeAuthModal() {
   document.getElementById('authGate').classList.remove('open');
 }
 
-function initGIS() {
+let _gisNonce = null;
+
+async function _generateNonce() {
+  const raw = btoa(String.fromCharCode(...crypto.getRandomValues(new Uint8Array(32))));
+  const hash = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(raw));
+  const hashed = Array.from(new Uint8Array(hash)).map(b => b.toString(16).padStart(2,'0')).join('');
+  return { raw, hashed };
+}
+
+async function initGIS() {
   if (!window.google?.accounts?.id) return;
+  const { raw, hashed } = await _generateNonce();
+  _gisNonce = raw;
   google.accounts.id.initialize({
     client_id: '989992573344-7u1s2b2n6aupnp8p0k0ltfj9i893b9s3.apps.googleusercontent.com',
     callback: handleGoogleCredential,
+    nonce: hashed,
     auto_select: false,
     cancel_on_tap_outside: true
   });
@@ -2874,7 +2886,8 @@ async function handleGoogleCredential(response) {
   try {
     const { error } = await sbClient.auth.signInWithIdToken({
       provider: 'google',
-      token: response.credential
+      token: response.credential,
+      nonce: _gisNonce
     });
     if (error) throw error;
     // onAuthStateChange fires → showApp()
@@ -2883,11 +2896,12 @@ async function handleGoogleCredential(response) {
   }
 }
 
-function signInWithGoogle() {
+async function signInWithGoogle() {
   if (window.google?.accounts?.id) {
+    // Re-init with a fresh nonce each attempt
+    await initGIS();
     google.accounts.id.prompt();
   } else {
-    // GIS not loaded yet — fallback
     sbClient.auth.signInWithOAuth({ provider: 'google', options: { redirectTo: window.location.origin } });
   }
 }
