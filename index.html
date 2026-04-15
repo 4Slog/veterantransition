@@ -19,6 +19,7 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="https://accounts.google.com/gsi/client" async></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/mammoth/1.6.0/mammoth.browser.min.js"></script>
 <style>
@@ -2814,6 +2815,9 @@ async function initAuth() {
     return;
   }
   sbClient = window.supabase.createClient(cfg.supabaseUrl, cfg.supabaseAnonKey);
+  // Init GIS now if loaded, else retry when it fires its own onload
+  initGIS();
+  window.addEventListener('load', initGIS, { once: true });
   const { data: { session } } = await sbClient.auth.getSession();
   if (session) { currentUser = session.user; showApp(); }
   else showAuthGate(); // shows landing page
@@ -2856,9 +2860,36 @@ function closeAuthModal() {
   document.getElementById('authGate').classList.remove('open');
 }
 
-async function signInWithGoogle() {
-  const { error } = await sbClient.auth.signInWithOAuth({ provider: 'google', options: { redirectTo: window.location.origin } });
-  if (error) showAuthError(error.message);
+function initGIS() {
+  if (!window.google?.accounts?.id) return;
+  google.accounts.id.initialize({
+    client_id: '989992573344-7u1s2b2n6aupnp8p0k0ltfj9i893b9s3.apps.googleusercontent.com',
+    callback: handleGoogleCredential,
+    auto_select: false,
+    cancel_on_tap_outside: true
+  });
+}
+
+async function handleGoogleCredential(response) {
+  try {
+    const { error } = await sbClient.auth.signInWithIdToken({
+      provider: 'google',
+      token: response.credential
+    });
+    if (error) throw error;
+    // onAuthStateChange fires → showApp()
+  } catch(e) {
+    showAuthError(e.message);
+  }
+}
+
+function signInWithGoogle() {
+  if (window.google?.accounts?.id) {
+    google.accounts.id.prompt();
+  } else {
+    // GIS not loaded yet — fallback
+    sbClient.auth.signInWithOAuth({ provider: 'google', options: { redirectTo: window.location.origin } });
+  }
 }
 
 async function authSubmit() {
