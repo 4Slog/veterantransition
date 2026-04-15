@@ -1038,7 +1038,7 @@ let state = {
   veteransPreference: '', jobAnnouncement: '',
   resumes: { federal: '', private: '', master: '', linkedin: '', coverletter: '' },
   careerProfile: null,
-  activeTab: 'federal', step: 1, contact: {}, _noDocsWarned: false
+  activeTab: 'federal', step: 1, contact: {}, _noDocsWarned: false, _generating: new Set()
 };
 
 let scanState = {};
@@ -1377,8 +1377,9 @@ function startFresh() {
   document.getElementById('scanProgress').classList.add('hidden');
   scanState = {}; scanTotal = 0; scanDone = 0;
 
-  // Reset no-docs warning
+  // Reset no-docs warning and generation guards
   state._noDocsWarned = false;
+  state._generating = new Set();
   const noDocsEl = document.getElementById('noDocsWarning');
   if (noDocsEl) noDocsEl.remove();
 
@@ -1975,6 +1976,7 @@ No preamble. Generate the master career inventory now.`;
   }
 
   // Pass 2: Generate resume from structured profile
+  state._generating.add(type);
   try {
     const resp = await fetch('/api/chat', {
       method: 'POST',
@@ -2001,6 +2003,7 @@ No preamble. Generate the master career inventory now.`;
     toast('Resume generation failed: ' + e.message, 'error');
     console.error(e);
   } finally {
+    state._generating.delete(type);
     setResumeLoading(false);
   }
 }
@@ -2025,6 +2028,7 @@ function handleResumeTab(type) {
     showNoDocsWarning();
   }
   showResumeTab(type);
+  if (state._generating?.has(type)) return; // already in flight
   if (type === 'linkedin') {
     if (!state.resumes.linkedin) generateLinkedIn();
   } else if (type === 'coverletter') {
@@ -2140,13 +2144,14 @@ OUTPUT FORMAT — strictly markdown:
 - Sections in order: ## HEADLINE OPTIONS | ## ABOUT SECTION | ## EXPERIENCE | ## SKILLS LIST | ## SETUP INSTRUCTIONS | ## ALL-STAR CHECKLIST
 No preamble or commentary outside the markdown sections.`;
 
+  state._generating.add('linkedin');
   try {
     const resp = await fetch('/api/chat', {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
       body: JSON.stringify({
         model: 'claude-haiku-4-5-20251001',
-        max_tokens: 2000,
+        max_tokens: 3000,
         messages: [{ role: 'user', content: prompt }]
       })
     });
@@ -2160,6 +2165,7 @@ No preamble or commentary outside the markdown sections.`;
   } catch(e) {
     toast('LinkedIn generation failed: ' + e.message, 'error');
   } finally {
+    state._generating.delete('linkedin');
     setResumeLoading(false);
   }
 }
@@ -2288,6 +2294,7 @@ OUTPUT FORMAT — plain prose, no section headers:
 
 Generate the complete cover letter now.`;
 
+  state._generating.add('coverletter');
   try {
     const resp = await fetch('/api/chat', {
       method: 'POST',
@@ -2309,6 +2316,7 @@ Generate the complete cover letter now.`;
   } catch(e) {
     toast('Cover letter generation failed: ' + e.message, 'error');
   } finally {
+    state._generating.delete('coverletter');
     setResumeLoading(false);
   }
 }
@@ -2849,7 +2857,7 @@ async function submitPromptReview() {
 async function saveReview(rating, text, display_name) {
   if (!sbClient) return;
   try {
-    const { error } = await sbClient.from('reviews').insert({ rating, text, display_name, created_at: new Date().toISOString() });
+    const { error } = await sbClient.from('reviews').insert({ rating, text, display_name, user_id: currentUser?.id || null, created_at: new Date().toISOString() });
     if (error) throw error;
     toast('Review submitted — thank you!', 'success');
     loadReviews();
