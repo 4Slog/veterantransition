@@ -1738,8 +1738,8 @@ ${docText.length > 120000
       method: 'POST',
       headers: { 'content-type': 'application/json' },
       body: JSON.stringify({
-        model: 'claude-haiku-4-5-20251001',
-        max_tokens: 7000,
+        model: 'claude-sonnet-4-6',
+        max_tokens: 8000,
         messages: [{ role: 'user', content: prompt }]
       })
     });
@@ -2132,8 +2132,8 @@ No preamble. Generate the master career inventory now.`;
       method: 'POST',
       headers: { 'content-type': 'application/json' },
       body: JSON.stringify({
-        model: 'claude-haiku-4-5-20251001',
-        max_tokens: isMaster ? 4000 : isFederal ? 3500 : 3000,
+        model: (isFederal || isMaster) ? 'claude-sonnet-4-6' : 'claude-haiku-4-5-20251001',
+        max_tokens: isMaster ? 6000 : isFederal ? 5000 : 3000,
         messages: [{ role: 'user', content: prompt }]
       })
     });
