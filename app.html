@@ -1666,7 +1666,7 @@ async function extractCareerProfile() {
 PURPOSE: This profile is a METADATA INDEX only — it provides structure (dates, titles, locations, metrics) to resume generators. Full accomplishment text lives in the source documents and will be provided to generators separately. Keep output COMPACT.
 
 EXTRACTION RULES:
-1. One assignment record per RATING PERIOD (per NCOER/OER/FITREP boundary). Three sequential NCOERs at Fort Gordon = three separate assignment objects, NOT one combined record.
+1. One assignment record per RATING PERIOD (per NCOER/OER/FITREP boundary). Three sequential NCOERs at Fort Gordon = three separate assignment objects, NOT one combined record. NEVER merge two rating periods even if same unit and location.
 2. ratingPeriodStart/ratingPeriodEnd = dates on the evaluation report, NOT PCS orders.
 3. dutyTitle: copy the exact military duty title from the document verbatim.
    civilianTitle: map to the closest conservative civilian equivalent. Do NOT elevate seniority beyond what the source supports (e.g. "Supply Sergeant" → "Inventory Control Specialist", NOT "Supply Chain Director").
@@ -1674,6 +1674,7 @@ EXTRACTION RULES:
    • Post-2018: up to 3 keyMetrics per assignment
    • 2013–2018: up to 2 keyMetrics per assignment
    • Pre-2013: include ONLY if a metric is explicitly stated in the document text; otherwise omit keyMetrics entirely
+   METRIC INTEGRITY: a metric belongs to the rating period whose document states it. Never carry a metric forward to an adjacent period, even if the same person held the same role.
 5. scopeStatement: ONE short phrase anchored to document language describing scope (e.g. "led 34-person supply section"). Post-2018 and 2013-2018 only.
 6. For missing fields use null. Do NOT generate any text descriptions, accomplishment narratives, or inferred values.
 7. NON-INVENTION RULES (strictly enforce):
@@ -1682,6 +1683,9 @@ EXTRACTION RULES:
    - supervisor name unknown → null (never invent a name)
    - salary unknown → null (never estimate)
    - clearance dates unknown → null
+8. SUPERVISOR — extract the rater's name AND rank/grade EXACTLY as written on the evaluation report. Do NOT infer or upgrade rank. Example: if the document shows "CW2 Rodriguez, Accountable Officer" then supervisor.rank="CW2", supervisor.name="Rodriguez, Alexander E.", supervisor.title="Accountable Officer". A Warrant Officer is not a Captain.
+9. COMPLETENESS — scan the entire document set systematically. Every evaluation report present in the source = one assignment object in the output. If you detect an assignment period in the raw text that you have not yet created an object for, add it. Flag any gaps greater than 6 months in coverageGaps.
+10. DOLLAR VALUES — extract ALL monetary figures stated in the source, regardless of size. Values over $100 million are especially important and must not be omitted (e.g. "$1.2 billion class IX shipment" or "$3.2B APS-4 inventory" must appear in keyMetrics if stated).
 
 Return ONLY valid JSON — no markdown fences, no explanation.
 
@@ -1700,7 +1704,7 @@ SCHEMA (follow exactly — no extra fields):
       "unit": {"designation": null, "parentCommand": null, "personnelStrength": null},
       "location": {"installation": null, "city": null, "state": null, "country": "USA"},
       "hoursPerWeek": 40, "payGrade": null, "salaryStart": null, "salaryEnd": null,
-      "supervisor": {"title": null, "name": null, "phone": null},
+      "supervisor": {"rank": null, "name": null, "title": null, "phone": null},
       "keyMetrics": []
     }
   ],
@@ -1917,18 +1921,18 @@ ${contactEmail} | ${contactPhone} | ${contactCity}${state.veteransPreference ? `
 
 ## WORK EXPERIENCE
 
-[Repeat this block for each position — most recent first. Full detail for most recent 5–7 years. Earlier assignments: one line "Additional Service: [YYYY–YYYY] — [Organization], [Role] | Details available upon request".]
+[Repeat this block for each position — most recent first. One block per NCOER/OER/FITREP rating period — never merge two rating periods. Full detail for most recent 10 years. Earlier assignments (pre-2014): 2–3 bullets each, still with dates/supervisor/salary. NEVER skip an assignment — federal reviewers check for gaps.]
 
-### [Civilian Job Title] ([Rank], [Branch of Service])
-**[Full Organization Name]** — [City, State or Country] | [Mon YYYY – Mon YYYY]
-40 hrs/week | Salary: ~$[start]–$[end]/yr | Supervisor: [Full Name], [Title]
+### [Civilian Job Title] | Military Title: [exact dutyTitle from source]
+**[Rank], [Branch of Service]** — [Full Organization Name] — [City, State or Country] | [Mon YYYY – Mon YYYY]
+40 hrs/week | Salary: ~$[start]–$[end]/yr | Supervisor: [Rank] [Full Name], [Title]
 
-[3–4 sentence prose paragraph. Describe role scope, organizational scale (personnel count, asset value, geographic reach), and mission context in civilian language. No acronyms unless defined.]
+[3–4 sentence prose paragraph. Describe role scope, organizational scale (personnel count, asset value, geographic reach), and mission context in civilian language. No acronyms unless defined. Draw only from the documents for this specific rating period — do not blend in accomplishments from other assignments.]
 
-- [Strong action verb] [specific accomplishment] [quantified result — $, %, headcount, or time]
-- [Most impactful achievement — use largest dollar figure or most significant outcome]
-- [Leadership or scope highlight with metric]
-- [Additional accomplishment with quantified result]
+- [Strong action verb] [specific accomplishment] [quantified result — only if explicitly stated in source]
+- [Most impactful achievement — use largest dollar figure stated in the source for this period]
+- [Leadership or scope highlight — metric only if sourced]
+- [Additional accomplishment — if no metric exists, state qualitatively]
 
 ---
 
@@ -1945,10 +1949,18 @@ ${contactEmail} | ${contactPhone} | ${contactCity}${state.veteransPreference ? `
 ## SKILLS & COMPETENCIES
 [System] • [System] • [System] • [Skill] • [Skill] • [Skill] • [Skill] • [Skill]
 
-RULES (non-negotiable):
-- 2-PAGE MAXIMUM when printed (10.5pt font, 0.75in margins) — condense older assignments
-- Every position MUST have: exact month/year dates, 40 hrs/week, supervisor name, salary range
-- Supervisor name unknown → use "[Supervisor Name]" as placeholder
+EVIDENCE DISCIPLINE — every claim in this resume must be defensible under federal HR scrutiny:
+- Every quantified metric (%, $, headcount, time, rate, count) MUST be explicitly stated in the source documents. Do not calculate, infer, estimate, or round up any figure.
+- If a source says "significantly improved" with no number — write "improved" with no number. NEVER invent a percentage, timeframe, or process-improvement rate.
+- Do NOT migrate metrics between assignments. A figure from one rating period cannot appear in a different one. "1,222 work orders" from Fort Gordon cannot appear under Fort Wainwright.
+- Supervisor rank AND name: copy EXACTLY as shown on the evaluation report. CW2 ≠ CPT. If the career profile shows supervisor.rank="CW2", write CW2. Never upgrade a Warrant Officer to a Captain.
+- Superlatives ("largest," "best," "first in brigade," "top 1%"): include ONLY if the rater or senior rater explicitly wrote it in the evaluation report.
+- When in doubt — omit the number and state the accomplishment without it. A defensible bullet without a metric is better than an invented metric that fails scrutiny.
+
+FEDERAL RESUME RULES (non-negotiable):
+- Federal resumes have NO page limit — include full detail for ALL assignments, not just recent ones
+- Every position MUST have: exact month/year dates, 40 hrs/week, supervisor name + rank, salary range
+- Supervisor unknown → "[Supervisor Name, Title]" as placeholder
 - Salary unknown → estimate by rank: E-5 ~$42k–$48k, E-6 ~$47k–$54k, E-7 ~$54k–$62k, E-8 ~$62k–$72k
 - ALL CAPS section headers in markdown headings ONLY (## SECTION)
 - EXCLUDE from certifications: PT/fitness test scores, weapons qualification scores, routine annual training events
@@ -2002,13 +2014,20 @@ ${contactEmail} | ${contactPhone} | ${contactCity}
 ## CERTIFICATIONS & TRAINING
 - [Relevant professional cert or course] | [Year]
 
-RULES (non-negotiable):
+EVIDENCE DISCIPLINE — every claim must be traceable to the source documents:
+- Every quantified metric (%, $, headcount, time, rate, count) MUST be explicitly stated in the source documents for that specific assignment. Do not calculate, infer, estimate, or round up any figure.
+- Do NOT migrate metrics between assignments. Each role gets only the metrics from its own rating period documents. "1,222 work orders" from Fort Gordon cannot appear under Fort Wainwright.
+- If a metric does not exist in the source for a bullet — rephrase the bullet without a number. A clean qualitative bullet is better than an invented metric.
+- Superlatives ("largest," "best," "top performer"): include ONLY if the evaluator explicitly wrote it.
+- NEVER invent: process-improvement percentages, turnaround times, inspection counts, fulfillment rates, or efficiency gains that are not verbatim in the source documents.
+
+PRIVATE SECTOR RULES (non-negotiable):
 - 2-PAGE MAXIMUM when printed (10.5pt, 0.75in margins) — cut bullets before adding length
 - ATS: contact info in document body (not header/footer) — already placed above, keep it there
 - Strip ALL military jargon — spell out every term or use civilian equivalent
 - No rank abbreviations — use civilian tier: Operations Manager, Senior Logistics Specialist
-- No unit numbers/IDs in org names — use branch name (U.S. Army / U.S. Navy / U.S. Marine Corps / U.S. Air Force / U.S. Space Force / U.S. Coast Guard) or "Department of Defense" style
-- Every bullet must have a quantified metric (%, $, headcount, or time)
+- No unit numbers/IDs in org names — use branch name or "Department of Defense" style
+- Quantified metrics required where sourced — if no source metric exists, state qualitatively
 - Skills appear both in Core Competencies AND in experience bullets (ATS keyword matching)
 - Do NOT include: hours/week, supervisor contact, salary, security clearance (unless relevant to target role)
 - Culture-fit language: "partnered", "collaborated", "built consensus" — not "commanded", "ordered"
@@ -2016,7 +2035,7 @@ RULES (non-negotiable):
 Generate the complete private sector resume now. No preamble — output starts with # [Name].`;
 
   } else { // master
-    prompt = `You are a master resume architect. Generate a concise master career inventory — the veteran's source document for building targeted resumes. Every assignment must appear; each gets 2–4 bullets. Be dense and factual, no padding.
+    prompt = `You are a master resume architect. Generate a complete master career inventory — the veteran's source-of-truth document. Every rating period must appear as a separate entry. Be dense, factual, and source-tight.
 
 CANDIDATE:
 Name: ${contactName} | Phone: ${contactPhone} | Email: ${contactEmail} | Location: ${contactCity}
@@ -2025,26 +2044,42 @@ ${trackSection}
 
 ${sourceContext}
 
-STRUCTURE (follow exactly — keep each section tight):
+EVIDENCE DISCIPLINE — this is the source-of-truth document; it must be fully defensible:
+- Every quantified metric (%, $, headcount, time, rate) MUST be explicitly stated in the source documents for that specific rating period. Never calculate, infer, or estimate.
+- Do NOT migrate metrics between assignments. Each rating period gets only what its own NCOER/OER/FITREP states.
+- Supervisor rank AND name: copy EXACTLY as shown on the evaluation report. CW2 ≠ CPT. Never upgrade a Warrant Officer to a Captain or infer rank from context.
+- Military duty title: always preserve verbatim — it is the source record. Show it alongside the civilian equivalent.
+- Superlatives and evaluator quotes: include ONLY if the rater or senior rater explicitly wrote them.
+- NEVER invent: percentages, time reductions, inspection counts, fulfillment rates, or efficiency gains not verbatim in source.
+- When in doubt — omit the number. A sourced qualitative statement is better than an invented metric.
 
-1. CONTACT INFORMATION (Name, Address, Phone, Email)
-2. PROFESSIONAL SUMMARY (3 lines max — branch, years, specialty, clearance, key credential)
-3. SECURITY CLEARANCE (level | status | investigation type)
+PERIOD GRANULARITY — CRITICAL:
+- One block per NCOER/OER/FITREP rating period. NEVER merge two periods, even if same unit, same location, or same supervisor.
+- If the career profile lists 3 assignments at Fort Gordon → output 3 separate blocks.
+- Cross-check the raw SERVICE DOCUMENTS for any rating periods not captured in the career profile (the profile may be incomplete). If you find a period in the raw documents that has no profile entry, add it.
+
+STRUCTURE (follow exactly):
+
+1. CONTACT INFORMATION (Name, Address, Phone, Email, Military Email if present)
+2. PROFESSIONAL SUMMARY (3 lines max — branch, years, MOS, clearance, key credential)
+3. SECURITY CLEARANCE (level | status | investigation type | continuous vetting date)
 4. CORE COMPETENCIES (two rows, 6 items each — hard skills first, leadership second)
 
-5. PROFESSIONAL EXPERIENCE (oldest → newest; one block per rating period in the career profile)
+5. PROFESSIONAL EXPERIENCE (oldest → newest; one block per rating period)
 Format per assignment:
-[Civilian Equivalent Title] | [Organization, plain English] | [City, State/Country] | [MMM YYYY – MMM YYYY]
-Pay: [payGrade] ~$[salaryStart]–$[salaryEnd] | 40 hrs/wk | Supervisor: [name], [title]
-• [Action verb + result + metric — draw from keyMetrics in profile and raw docs]
-• [2nd bullet — most impactful accomplishment with $ or % figure]
-• [3rd bullet — scope or leadership highlight; include evaluator quote if exceptional]
+[Civilian Equivalent Title] | Military Title: [exact dutyTitle verbatim]
+[Organization, plain English] | [City, State/Country] | [MMM YYYY – MMM YYYY]
+Pay: [payGrade] ~$[salaryStart]–$[salaryEnd]/yr | 40 hrs/wk | Supervisor: [rank] [name], [title]
+• [Bullet drawn directly from NCOER bullet text or duty description — metric only if sourced]
+• [Most impactful sourced accomplishment — largest dollar figure or clearest outcome]
+• [Scope or leadership highlight — evaluator quote if exceptional; cite "Rater:" or "Senior Rater:"]
 
 6. EDUCATION (degree | institution | year)
-7. MILITARY EDUCATION (course | school | year — list all from documents)
-8. AWARDS (Name x[count] | brief civilian translation)
+7. MILITARY EDUCATION (course | code | dates | duration — list ALL from documents)
+8. AWARDS (Name × count | brief civilian translation)
 9. DEPLOYMENTS (operation | theater | dates | combat zone yes/no)
-10. SKILLS (technical systems, software, languages — all from documents)
+10. SKILLS (technical systems, software, languages — all from documents; include ASVAB scores)
+11. VETERAN'S PREFERENCE & SEPARATION DATA
 
 No preamble. Generate the master career inventory now.`;
   }
