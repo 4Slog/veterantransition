@@ -1917,7 +1917,7 @@ ${sourceContext}
 SPACE PLAN — complete this silently before writing a single line of the resume:
 1. List every assignment from CAREER PROFILE (duty title, organization, date range).
 2. Consolidate: consecutive NCOERs/OERs sharing the same duty title AND organization → one assignment block. Date range = start of earliest to end of latest rating period in that group.
-3. DEPLOYMENT OVERLAP: if a combat deployment (Iraq, Afghanistan, etc.) overlaps with a home-station assignment, do NOT create two separate blocks with overlapping dates. Instead, note the deployment as a sub-line within the home-station block: "Deployed: [theater] | [dates]".
+3. DEPLOYMENT IDENTIFICATION: scan for any assignment in a combat theater (Iraq, Afghanistan, Kuwait, etc.). If that assignment is from the SAME battalion/unit as a home-station assignment — regardless of whether dates overlap or are sequential — it is a deployment FROM that unit, not a separate job. Merge it as a sub-line inside the home-station block: "*Deployed: [Operation name], [Location] | [Mon YYYY – Mon YYYY]*". Do NOT create a separate experience block for a deployment — it has no separate civilian employer.
 4. Categorize each consolidated assignment by how long ago it ended:
    - TIER 1 (ended within last 5 years): 3-line prose + 3 bullets MAX — each bullet max 2 lines
    - TIER 2 (ended 5–10 years ago): 1-line scope + 2 bullets MAX — each bullet 1 line
@@ -1950,7 +1950,7 @@ ${contactEmail} | ${contactPhone} | ${contactCity}${state.veteransPreference ? `
 [Repeat this block for each consolidated assignment — most recent first. Apply tier depth from your space plan above.]
 
 ### [Civilian Job Title] | Military Title: [exact dutyTitle from source]
-**[Rank], [Branch of Service]** — [Full Organization Name] — [City, State or Country] | [Mon YYYY – Mon YYYY] | ~$[start]–$[end]/yr
+**[Rank], [Branch of Service]** — [Full Organization Name] — [City, State or Country] | [Mon YYYY – Mon YYYY]
 
 [TIER 1 only — 2–3 sentence prose. Role scope, organizational scale, mission context in civilian language. No acronyms unless defined. Draw only from source documents for this assignment.]
 
@@ -1985,8 +1985,7 @@ EVIDENCE DISCIPLINE — every claim in this resume must be defensible under fede
 
 FEDERAL RESUME RULES (non-negotiable):
 - 2-PAGE MAXIMUM — OPM/USAJOBS policy effective Sep 27, 2025; resumes over 2 pages are rejected. Follow your space plan line budgets exactly.
-- Every position MUST have: exact month/year dates, salary range (fold into header line)
-- Salary unknown → estimate by rank: E-4 ~$37k–$42k, E-5 ~$42k–$48k, E-6 ~$47k–$54k, E-7 ~$54k–$62k, E-8 ~$62k–$72k, E-9 ~$72k–$84k, WO1–CW2 ~$50k–$65k, CW3–CW5 ~$65k–$90k
+- Every position MUST have: exact month/year dates
 - ALL CAPS section headers in markdown headings ONLY (## SECTION)
 - EXCLUDE from skills/certifications: PT/fitness test scores, weapons qualification scores, ASVAB scores, routine annual training events
 ${state.veteransPreference ? `- Note veterans preference: "${state.veteransPreference} — DD-214 on file"` : ''}
@@ -2006,7 +2005,7 @@ ${sourceContext}
 SPACE PLAN — complete this silently before writing a single line of the resume:
 1. List every assignment from CAREER PROFILE (duty title, organization, date range).
 2. Consolidate: consecutive assignments sharing the same duty title AND organization → one role block. Date range = start of earliest to end of latest.
-3. DEPLOYMENT OVERLAP: if a combat deployment overlaps with a home-station assignment, do NOT create two blocks with overlapping dates. Note the deployment as a single sub-line within the home-station block.
+3. DEPLOYMENT IDENTIFICATION: if any assignment is in a combat theater (Iraq, Afghanistan, Kuwait, etc.) from the SAME battalion/unit as a home-station assignment — regardless of whether dates overlap or are sequential — it is a deployment FROM that unit, not a separate job. Merge as a sub-line inside the home-station block: "*Deployed: [Operation], [Location] | [dates]*". Never create a separate experience block for a deployment.
 4. Categorize each consolidated role by recency:
    - TIER 1 (last 5 years): 2 sentence description + 3 bullets MAX — each bullet 1 line
    - TIER 2 (5–10 years ago): 1 sentence scope + 2 bullets MAX — each bullet 1 line
