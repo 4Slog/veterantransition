@@ -1900,6 +1900,17 @@ ${trackSection}
 
 ${sourceContext}
 
+SPACE PLAN — complete this silently before writing a single line of the resume:
+1. List every assignment from CAREER PROFILE (duty title, organization, date range).
+2. Consolidate: consecutive NCOERs/OERs sharing the same duty title AND organization → one assignment block. Date range = start of earliest to end of latest rating period in that group.
+3. Categorize each consolidated assignment by how long ago it ended:
+   - TIER 1 (ended within last 5 years): prose paragraph + 3–4 bullets
+   - TIER 2 (ended 5–10 years ago): 2-line scope sentence + 2 bullets
+   - TIER 3 (ended 10–15 years ago): header line + 1 bullet
+   - TIER 4 (ended 15+ years ago): header line only — no bullets
+4. Estimate total lines: header/profile/competencies/clearance/education/awards/skills ≈ 25 lines. Work experience budget ≈ 75 lines. If your plan exceeds 75 lines, demote the oldest TIER 1 assignments to TIER 2 until it fits.
+5. Now write the resume following your plan exactly.
+
 OUTPUT FORMAT — use markdown exactly as shown (the app renders this to HTML):
 
 # ${contactName}
@@ -1921,18 +1932,17 @@ ${contactEmail} | ${contactPhone} | ${contactCity}${state.veteransPreference ? `
 
 ## WORK EXPERIENCE
 
-[Repeat this block for each position — most recent first. One block per NCOER/OER/FITREP rating period — never merge two rating periods. Most recent 10 years: full prose + 3–4 bullets. Earlier assignments (pre-2014): dates/supervisor/salary line + 1–2 bullets only. Every assignment must appear — compress older ones, never omit. 2-page total limit.]
+[Repeat this block for each consolidated assignment — most recent first. Apply tier depth from your space plan above.]
 
 ### [Civilian Job Title] | Military Title: [exact dutyTitle from source]
-**[Rank], [Branch of Service]** — [Full Organization Name] — [City, State or Country] | [Mon YYYY – Mon YYYY]
-40 hrs/week | Salary: ~$[start]–$[end]/yr | Supervisor: [Rank if known] [Full Name], [Title]
+**[Rank], [Branch of Service]** — [Full Organization Name] — [City, State or Country] | [Mon YYYY – Mon YYYY] | ~$[start]–$[end]/yr
 
-[3–4 sentence prose paragraph. Describe role scope, organizational scale (personnel count, asset value, geographic reach), and mission context in civilian language. No acronyms unless defined. Draw only from the documents for this specific rating period — do not blend in accomplishments from other assignments.]
+[TIER 1 only — 3–4 sentence prose paragraph. Role scope, organizational scale (personnel count, asset value, geographic reach), mission context in civilian language. No acronyms unless defined. Draw only from source documents for this assignment — do not blend accomplishments from other assignments.]
 
 - [Strong action verb] [specific accomplishment] [quantified result — only if explicitly stated in source]
-- [Most impactful achievement — use largest dollar figure stated in the source for this period]
+- [Most impactful achievement — use largest dollar figure stated in the source for this assignment]
 - [Leadership or scope highlight — metric only if sourced]
-- [Additional accomplishment — if no metric exists, state qualitatively]
+- [TIER 1 only — additional accomplishment; if no metric exists, state qualitatively]
 
 ---
 
@@ -1952,16 +1962,14 @@ ${contactEmail} | ${contactPhone} | ${contactCity}${state.veteransPreference ? `
 EVIDENCE DISCIPLINE — every claim in this resume must be defensible under federal HR scrutiny:
 - Every quantified metric (%, $, headcount, time, rate, count) MUST be explicitly stated in the source documents. Do not calculate, infer, estimate, or round up any figure.
 - If a source says "significantly improved" with no number — write "improved" with no number. NEVER invent a percentage, timeframe, or process-improvement rate.
-- Do NOT migrate metrics between assignments. A figure from one rating period cannot appear in a different one. "1,222 work orders" from Fort Gordon cannot appear under Fort Wainwright.
-- Supervisor rank AND name: copy EXACTLY as shown on the evaluation report. CW2 ≠ CPT. If the career profile shows supervisor.rank="CW2", write CW2. Never upgrade a Warrant Officer to a Captain. If rank is null or unknown, omit it — write name and title only, no placeholder.
+- Do NOT migrate metrics between assignments. A figure from one assignment cannot appear under a different one. "1,222 work orders" from Fort Gordon cannot appear under Fort Wainwright.
 - Superlatives ("largest," "best," "first in brigade," "top 1%"): include ONLY if the rater or senior rater explicitly wrote it in the evaluation report.
 - When in doubt — omit the number and state the accomplishment without it. A defensible bullet without a metric is better than an invented metric that fails scrutiny.
 
 FEDERAL RESUME RULES (non-negotiable):
-- 2-PAGE MAXIMUM — OPM/USAJOBS policy effective Sep 27, 2025; resumes over 2 pages are rejected. Prioritize most recent 10 years in full; condense pre-2014 to 1–2 bullets each. Every position must still appear — just compressed.
-- Every position MUST have: exact month/year dates, 40 hrs/week, supervisor name + rank, salary range
-- Supervisor unknown → "[Supervisor Name, Title]" as placeholder
-- Salary unknown → estimate by rank: E-5 ~$42k–$48k, E-6 ~$47k–$54k, E-7 ~$54k–$62k, E-8 ~$62k–$72k
+- 2-PAGE MAXIMUM — OPM/USAJOBS policy effective Sep 27, 2025; resumes over 2 pages are rejected. Follow your space plan — do not exceed tier depth.
+- Every position MUST have: exact month/year dates, salary range (fold into header line)
+- Salary unknown → estimate by rank: E-4 ~$37k–$42k, E-5 ~$42k–$48k, E-6 ~$47k–$54k, E-7 ~$54k–$62k, E-8 ~$62k–$72k, E-9 ~$72k–$84k, WO1–CW2 ~$50k–$65k, CW3–CW5 ~$65k–$90k
 - ALL CAPS section headers in markdown headings ONLY (## SECTION)
 - EXCLUDE from certifications: PT/fitness test scores, weapons qualification scores, routine annual training events
 ${state.veteransPreference ? `- Note veterans preference: "${state.veteransPreference} — DD-214 on file"` : ''}
@@ -1977,6 +1985,16 @@ Clearance: ${profile?.clearance?.level || state.clearance || 'Extract from docum
 ${trackSection}
 
 ${sourceContext}
+
+SPACE PLAN — complete this silently before writing a single line of the resume:
+1. List every assignment from CAREER PROFILE (duty title, organization, date range).
+2. Consolidate: consecutive assignments sharing the same duty title AND organization → one role block. Date range = start of earliest to end of latest.
+3. Categorize each consolidated role by recency:
+   - TIER 1 (last 5 years): 2–3 sentence description + 3 bullets
+   - TIER 2 (5–10 years ago): 1 sentence scope + 2 bullets
+   - TIER 3 (10+ years ago): title/org/dates line + 1 bullet max
+4. Estimate total lines: header/profile/competencies/education/certs ≈ 20 lines. Experience budget ≈ 60 lines. Demote oldest TIER 1 to TIER 2 if over budget.
+5. Write the resume following your plan exactly.
 
 OUTPUT FORMAT — use markdown exactly as shown (the app renders this to HTML):
 
@@ -1998,13 +2016,13 @@ ${contactEmail} | ${contactPhone} | ${contactCity}
 ### [Civilian Job Title]
 **[Organization Type — NO unit numbers or military designations]** | [City, State] | [Mon YYYY – Mon YYYY]
 
-[2–3 sentence role description: scope, team size, asset value, civilian business context.]
+[TIER 1 only — 2–3 sentence role description: scope, team size, asset value, civilian business context.]
 
 - [Accomplished X as measured by Y by doing Z — quantified metric required]
 - [Metric-backed achievement — $, %, time saved, headcount]
 - [Leadership or cross-functional scope achievement]
 
-[Repeat for each role — most recent 3–4 in full, older roles condensed to 1–2 bullets]
+[Repeat for each consolidated role — apply tier depth from your space plan]
 
 ---
 
