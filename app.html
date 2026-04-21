@@ -1925,7 +1925,7 @@ ${contactEmail} | ${contactPhone} | ${contactCity}${state.veteransPreference ? `
 
 ### [Civilian Job Title] | Military Title: [exact dutyTitle from source]
 **[Rank], [Branch of Service]** — [Full Organization Name] — [City, State or Country] | [Mon YYYY – Mon YYYY]
-40 hrs/week | Salary: ~$[start]–$[end]/yr | Supervisor: [Rank] [Full Name], [Title]
+40 hrs/week | Salary: ~$[start]–$[end]/yr | Supervisor: [Rank if known] [Full Name], [Title]
 
 [3–4 sentence prose paragraph. Describe role scope, organizational scale (personnel count, asset value, geographic reach), and mission context in civilian language. No acronyms unless defined. Draw only from the documents for this specific rating period — do not blend in accomplishments from other assignments.]
 
@@ -1953,7 +1953,7 @@ EVIDENCE DISCIPLINE — every claim in this resume must be defensible under fede
 - Every quantified metric (%, $, headcount, time, rate, count) MUST be explicitly stated in the source documents. Do not calculate, infer, estimate, or round up any figure.
 - If a source says "significantly improved" with no number — write "improved" with no number. NEVER invent a percentage, timeframe, or process-improvement rate.
 - Do NOT migrate metrics between assignments. A figure from one rating period cannot appear in a different one. "1,222 work orders" from Fort Gordon cannot appear under Fort Wainwright.
-- Supervisor rank AND name: copy EXACTLY as shown on the evaluation report. CW2 ≠ CPT. If the career profile shows supervisor.rank="CW2", write CW2. Never upgrade a Warrant Officer to a Captain.
+- Supervisor rank AND name: copy EXACTLY as shown on the evaluation report. CW2 ≠ CPT. If the career profile shows supervisor.rank="CW2", write CW2. Never upgrade a Warrant Officer to a Captain. If rank is null or unknown, omit it — write name and title only, no placeholder.
 - Superlatives ("largest," "best," "first in brigade," "top 1%"): include ONLY if the rater or senior rater explicitly wrote it in the evaluation report.
 - When in doubt — omit the number and state the accomplishment without it. A defensible bullet without a metric is better than an invented metric that fails scrutiny.
 
@@ -2047,7 +2047,7 @@ ${sourceContext}
 EVIDENCE DISCIPLINE — this is the source-of-truth document; it must be fully defensible:
 - Every quantified metric (%, $, headcount, time, rate) MUST be explicitly stated in the source documents for that specific rating period. Never calculate, infer, or estimate.
 - Do NOT migrate metrics between assignments. Each rating period gets only what its own NCOER/OER/FITREP states.
-- Supervisor rank AND name: copy EXACTLY as shown on the evaluation report. CW2 ≠ CPT. Never upgrade a Warrant Officer to a Captain or infer rank from context.
+- Supervisor rank AND name: copy EXACTLY as shown on the evaluation report. CW2 ≠ CPT. Never upgrade a Warrant Officer to a Captain or infer rank from context. If rank is null or unknown, omit it — write name and title only.
 - Military duty title: always preserve verbatim — it is the source record. Show it alongside the civilian equivalent.
 - Superlatives and evaluator quotes: include ONLY if the rater or senior rater explicitly wrote them.
 - NEVER invent: percentages, time reductions, inspection counts, fulfillment rates, or efficiency gains not verbatim in source.
@@ -2069,7 +2069,7 @@ STRUCTURE (follow exactly):
 Format per assignment:
 [Civilian Equivalent Title] | Military Title: [exact dutyTitle verbatim]
 [Organization, plain English] | [City, State/Country] | [MMM YYYY – MMM YYYY]
-Pay: [payGrade] ~$[salaryStart]–$[salaryEnd]/yr | 40 hrs/wk | Supervisor: [rank] [name], [title]
+Pay: [payGrade] ~$[salaryStart]–$[salaryEnd]/yr | 40 hrs/wk | Supervisor: [rank if known] [name], [title]
 • [Bullet drawn directly from NCOER bullet text or duty description — metric only if sourced]
 • [Most impactful sourced accomplishment — largest dollar figure or clearest outcome]
 • [Scope or leadership highlight — evaluator quote if exceptional; cite "Rater:" or "Senior Rater:"]
