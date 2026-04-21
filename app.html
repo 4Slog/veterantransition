@@ -1917,13 +1917,14 @@ ${sourceContext}
 SPACE PLAN — complete this silently before writing a single line of the resume:
 1. List every assignment from CAREER PROFILE (duty title, organization, date range).
 2. Consolidate: consecutive NCOERs/OERs sharing the same duty title AND organization → one assignment block. Date range = start of earliest to end of latest rating period in that group.
-3. Categorize each consolidated assignment by how long ago it ended:
-   - TIER 1 (ended within last 5 years): prose paragraph + 3–4 bullets
-   - TIER 2 (ended 5–10 years ago): 2-line scope sentence + 2 bullets
-   - TIER 3 (ended 10–15 years ago): header line + 1 bullet
+3. DEPLOYMENT OVERLAP: if a combat deployment (Iraq, Afghanistan, etc.) overlaps with a home-station assignment, do NOT create two separate blocks with overlapping dates. Instead, note the deployment as a sub-line within the home-station block: "Deployed: [theater] | [dates]".
+4. Categorize each consolidated assignment by how long ago it ended:
+   - TIER 1 (ended within last 5 years): 3-line prose + 3 bullets MAX — each bullet max 2 lines
+   - TIER 2 (ended 5–10 years ago): 1-line scope + 2 bullets MAX — each bullet 1 line
+   - TIER 3 (ended 10–15 years ago): header line + 1 bullet — 1 line only
    - TIER 4 (ended 15+ years ago): header line only — no bullets
-4. Estimate total lines: header/profile/competencies/clearance/education/awards/skills ≈ 25 lines. Work experience budget ≈ 75 lines. If your plan exceeds 75 lines, demote the oldest TIER 1 assignments to TIER 2 until it fits.
-5. Now write the resume following your plan exactly.
+5. Hard line budget: TIER 1 = 8 lines per block. TIER 2 = 4 lines. TIER 3 = 2 lines. TIER 4 = 1 line. Count your assignments, multiply by tier budget, add 25 lines for header/profile/sections. Total MUST be ≤ 100 lines. If over, demote oldest blocks until it fits.
+6. Now write the resume following your plan exactly — do not exceed per-block line budgets.
 
 OUTPUT FORMAT — use markdown exactly as shown (the app renders this to HTML):
 
@@ -1951,12 +1952,11 @@ ${contactEmail} | ${contactPhone} | ${contactCity}${state.veteransPreference ? `
 ### [Civilian Job Title] | Military Title: [exact dutyTitle from source]
 **[Rank], [Branch of Service]** — [Full Organization Name] — [City, State or Country] | [Mon YYYY – Mon YYYY] | ~$[start]–$[end]/yr
 
-[TIER 1 only — 3–4 sentence prose paragraph. Role scope, organizational scale (personnel count, asset value, geographic reach), mission context in civilian language. No acronyms unless defined. Draw only from source documents for this assignment — do not blend accomplishments from other assignments.]
+[TIER 1 only — 2–3 sentence prose. Role scope, organizational scale, mission context in civilian language. No acronyms unless defined. Draw only from source documents for this assignment.]
 
-- [Strong action verb] [specific accomplishment] [quantified result — only if explicitly stated in source]
-- [Most impactful achievement — use largest dollar figure stated in the source for this assignment]
-- [Leadership or scope highlight — metric only if sourced]
-- [TIER 1 only — additional accomplishment; if no metric exists, state qualitatively]
+- [Action verb] [what you did] — [quantified result if sourced] — [effect on mission/organization]
+- [Action verb] [what you did] — [quantified result if sourced] — [effect on mission/organization]
+- [Action verb] [what you did] — [qualitative outcome if no metric] — [effect on mission/organization]
 
 ---
 
@@ -1979,13 +1979,16 @@ EVIDENCE DISCIPLINE — every claim in this resume must be defensible under fede
 - Do NOT migrate metrics between assignments. A figure from one assignment cannot appear under a different one. "1,222 work orders" from Fort Gordon cannot appear under Fort Wainwright.
 - Superlatives ("largest," "best," "first in brigade," "top 1%"): include ONLY if the rater or senior rater explicitly wrote it in the evaluation report.
 - When in doubt — omit the number and state the accomplishment without it. A defensible bullet without a metric is better than an invented metric that fails scrutiny.
+- TRANSLATE, do not transcribe: NCOER bullets are Army-formatted shorthand. Rewrite every bullet as a full civilian sentence. Never copy NCOER language verbatim.
+- BULLET FORMULA — every bullet must follow: [Action verb] [what you did] — [result] — [effect/impact on organization or mission]. The third part (effect) is mandatory — it answers "so what?" for a civilian hiring manager.
+- EXPIRED CERTIFICATIONS: omit any certification explicitly marked as expired or with an expiration date in the past. Expired certs signal a lapse, not a credential.
 
 FEDERAL RESUME RULES (non-negotiable):
-- 2-PAGE MAXIMUM — OPM/USAJOBS policy effective Sep 27, 2025; resumes over 2 pages are rejected. Follow your space plan — do not exceed tier depth.
+- 2-PAGE MAXIMUM — OPM/USAJOBS policy effective Sep 27, 2025; resumes over 2 pages are rejected. Follow your space plan line budgets exactly.
 - Every position MUST have: exact month/year dates, salary range (fold into header line)
 - Salary unknown → estimate by rank: E-4 ~$37k–$42k, E-5 ~$42k–$48k, E-6 ~$47k–$54k, E-7 ~$54k–$62k, E-8 ~$62k–$72k, E-9 ~$72k–$84k, WO1–CW2 ~$50k–$65k, CW3–CW5 ~$65k–$90k
 - ALL CAPS section headers in markdown headings ONLY (## SECTION)
-- EXCLUDE from certifications: PT/fitness test scores, weapons qualification scores, routine annual training events
+- EXCLUDE from skills/certifications: PT/fitness test scores, weapons qualification scores, ASVAB scores, routine annual training events
 ${state.veteransPreference ? `- Note veterans preference: "${state.veteransPreference} — DD-214 on file"` : ''}
 
 Generate the complete federal resume now. No preamble, no commentary — output starts with # [Name].`;
@@ -2003,12 +2006,13 @@ ${sourceContext}
 SPACE PLAN — complete this silently before writing a single line of the resume:
 1. List every assignment from CAREER PROFILE (duty title, organization, date range).
 2. Consolidate: consecutive assignments sharing the same duty title AND organization → one role block. Date range = start of earliest to end of latest.
-3. Categorize each consolidated role by recency:
-   - TIER 1 (last 5 years): 2–3 sentence description + 3 bullets
-   - TIER 2 (5–10 years ago): 1 sentence scope + 2 bullets
-   - TIER 3 (10+ years ago): title/org/dates line + 1 bullet max
-4. Estimate total lines: header/profile/competencies/education/certs ≈ 20 lines. Experience budget ≈ 60 lines. Demote oldest TIER 1 to TIER 2 if over budget.
-5. Write the resume following your plan exactly.
+3. DEPLOYMENT OVERLAP: if a combat deployment overlaps with a home-station assignment, do NOT create two blocks with overlapping dates. Note the deployment as a single sub-line within the home-station block.
+4. Categorize each consolidated role by recency:
+   - TIER 1 (last 5 years): 2 sentence description + 3 bullets MAX — each bullet 1 line
+   - TIER 2 (5–10 years ago): 1 sentence scope + 2 bullets MAX — each bullet 1 line
+   - TIER 3 (10+ years ago): title/org/dates + 1 bullet — 1 line only
+5. Hard line budget: TIER 1 = 7 lines. TIER 2 = 4 lines. TIER 3 = 2 lines. Total with header/profile/sections must be ≤ 90 lines. Demote oldest blocks if over.
+6. Write the resume following your plan exactly.
 
 OUTPUT FORMAT — use markdown exactly as shown (the app renders this to HTML):
 
@@ -2032,9 +2036,9 @@ ${contactEmail} | ${contactPhone} | ${contactCity}
 
 [TIER 1 only — 2–3 sentence role description: scope, team size, asset value, civilian business context.]
 
-- [Accomplished X as measured by Y by doing Z — quantified metric required]
-- [Metric-backed achievement — $, %, time saved, headcount]
-- [Leadership or cross-functional scope achievement]
+- [Action verb] [what you did] — [quantified result if sourced] — [effect/impact on business or team]
+- [Action verb] [what you did] — [quantified result if sourced] — [effect/impact on business or team]
+- [Action verb] [what you did] — [qualitative outcome if no metric] — [effect/impact on business or team]
 
 [Repeat for each consolidated role — apply tier depth from your space plan]
 
@@ -2052,6 +2056,9 @@ EVIDENCE DISCIPLINE — every claim must be traceable to the source documents:
 - If a metric does not exist in the source for a bullet — rephrase the bullet without a number. A clean qualitative bullet is better than an invented metric.
 - Superlatives ("largest," "best," "top performer"): include ONLY if the evaluator explicitly wrote it.
 - NEVER invent: process-improvement percentages, turnaround times, inspection counts, fulfillment rates, or efficiency gains that are not verbatim in the source documents.
+- TRANSLATE, do not transcribe: NCOER bullets are Army-formatted shorthand. Rewrite into full civilian sentences — never copy verbatim.
+- BULLET FORMULA: [Action verb] [what you did] — [result] — [effect/impact]. Third part mandatory.
+- EXPIRED CERTIFICATIONS: omit certifications explicitly marked as expired.
 
 PRIVATE SECTOR RULES (non-negotiable):
 - 2-PAGE MAXIMUM when printed (10.5pt, 0.75in margins) — cut bullets before adding length
@@ -2084,6 +2091,9 @@ EVIDENCE DISCIPLINE — this is the source-of-truth document; it must be fully d
 - Superlatives and evaluator quotes: include ONLY if the rater or senior rater explicitly wrote them.
 - NEVER invent: percentages, time reductions, inspection counts, fulfillment rates, or efficiency gains not verbatim in source.
 - When in doubt — omit the number. A sourced qualitative statement is better than an invented metric.
+- TRANSLATE, do not transcribe: rewrite NCOER bullet language into full civilian sentences — even in the master document. Army shorthand ("Managed 1,222 WOs; zero loss") must become a complete sentence. The master is a reference document, not a copy-paste of eval reports.
+- BULLET FORMULA: [Action verb] [what you did] — [sourced result] — [effect on mission/organization]. Include source citation at end of each bullet.
+- EXPIRED CERTIFICATIONS: flag as "(Expired [date])" rather than listing as current.
 
 PERIOD GRANULARITY — CRITICAL:
 - One block per NCOER/OER/FITREP rating period. NEVER merge two periods, even if same unit, same location, or same supervisor.
@@ -2102,9 +2112,9 @@ Format per assignment:
 [Civilian Equivalent Title] | Military Title: [exact dutyTitle verbatim]
 [Organization, plain English] | [City, State/Country] | [MMM YYYY – MMM YYYY]
 Pay: [payGrade] ~$[salaryStart]–$[salaryEnd]/yr | 40 hrs/wk | Supervisor: [rank if known] [name], [title]
-• [Bullet drawn directly from NCOER bullet text or duty description — metric only if sourced]
-• [Most impactful sourced accomplishment — largest dollar figure or clearest outcome]
-• [Scope or leadership highlight — evaluator quote if exceptional; cite "Rater:" or "Senior Rater:"]
+• [Action verb] [what you did] — [sourced result] — [effect on mission/organization] | Source: [NCOER date or doc]
+• [Action verb] [what you did] — [sourced result] — [effect on mission/organization] | Source: [NCOER date or doc]
+• [Scope or leadership highlight — include evaluator quote if exceptional, cited as "Rater:" or "Senior Rater:"]
 
 6. EDUCATION (degree | institution | year)
 7. MILITARY EDUCATION (course | code | dates | duration — list ALL from documents)
