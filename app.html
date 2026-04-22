@@ -1697,6 +1697,7 @@ EXTRACTION RULES:
 8. SUPERVISOR — extract the rater's name AND rank/grade EXACTLY as written on the evaluation report. Do NOT infer or upgrade rank. Example: if the document shows "CW2 Rodriguez, Accountable Officer" then supervisor.rank="CW2", supervisor.name="Rodriguez, Alexander E.", supervisor.title="Accountable Officer". A Warrant Officer is not a Captain.
 9. COMPLETENESS — scan the entire document set systematically. Every evaluation report present in the source = one assignment object in the output. If you detect an assignment period in the raw text that you have not yet created an object for, add it. Flag any gaps greater than 6 months in coverageGaps.
 10. DOLLAR VALUES — extract ALL monetary figures stated in the source, regardless of size. Values over $100 million are especially important and must not be omitted (e.g. "$1.2 billion class IX shipment" or "$3.2B APS-4 inventory" must appear in keyMetrics if stated).
+11. SEPARATION DATE — extract the veteran's separation/retirement date from the DD-214, Talent Profile, or any document that states an ETS date, retirement date, or separation date. Format as "YYYY-MM-DD". If the exact day is unknown but month/year is clear, use the last day of that month (e.g. September 2024 → "2024-09-30"). If no date found anywhere in the documents, set null.
 
 Return ONLY valid JSON — no markdown fences, no explanation.
 
@@ -1994,7 +1995,7 @@ No clichés. No "results-driven." No "dynamic." Civilian language only.]
 
 EVIDENCE DISCIPLINE (enforced strictly — this resume may face federal HR audit):
 - Metrics: every number (%, $, headcount, time, count) MUST appear verbatim in the source documents for that specific assignment. If you cannot point to the exact sentence in the source — do not include the number. Write the accomplishment without it.
-- The "30% improvement" test: if a percentage or improvement rate is not explicitly written in an NCOER bullet or evaluation narrative — it does not exist. Do not calculate, infer, or estimate any rate.
+- The "30% improvement" test: if a percentage or improvement rate is not explicitly written in an NCOER bullet or evaluation narrative — it does not exist. Do not calculate, infer, or estimate any rate. SPECIFIC EXAMPLE OF WHAT NOT TO DO: "Improved DA-tracked logistics performance metrics by 30% through supply readiness initiatives" — if 30% is not written in the NCOER, this bullet is fabricated. Write instead: "Strengthened supply readiness through weekly logistics performance reviews across battalion organic units — reducing cross-leveling friction and improving reporting compliance."
 - No metric migration: figures belong to the assignment whose documents state them. "1,222 work orders" at Fort Gordon cannot appear at Fort Wainwright.
 - Superlatives ("best," "top," "first in brigade"): only if rater or senior rater wrote those exact words.
 - TRANSLATE, never transcribe: NCOER bullets are Army shorthand. Rewrite as full civilian sentences. Never copy verbatim.
