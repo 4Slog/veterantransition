@@ -1241,6 +1241,13 @@ function saveResumesToStorage() {
   try { localStorage.setItem('veterantransition_resumes', JSON.stringify(state.resumes)); } catch(e) {}
 }
 
+function formatPhone(raw) {
+  if (!raw) return '[YOUR PHONE]';
+  const digits = raw.replace(/\D/g, '');
+  const m = digits.replace(/^1/, '').match(/^(\d{3})(\d{3})(\d{4})$/);
+  return m ? `(${m[1]}) ${m[2]}-${m[3]}` : raw;
+}
+
 function saveProfileToStorage() {
   try { localStorage.setItem('veterantransition_profile', JSON.stringify(state.careerProfile)); } catch(e) {}
 }
@@ -1876,7 +1883,7 @@ async function generateResume(type) {
   const isPrivate = type === 'private';
   const contactName  = contact.name  || '[YOUR FULL NAME]';
   const contactEmail = contact.email || '[YOUR EMAIL]';
-  const contactPhone = contact.phone || '[YOUR PHONE]';
+  const contactPhone = formatPhone(contact.phone);
   const contactCity  = contact.city  || '[YOUR CITY, STATE]';
 
   const loadingText = isMaster ? 'Building master career inventory...' : isFederal ? 'Generating federal resume...' : 'Generating private sector resume...';
@@ -1904,29 +1911,34 @@ async function generateResume(type) {
   let prompt;
 
   if (isFederal) {
-    prompt = `You are a federal hiring specialist and USAJOBS resume writer. Generate a complete, submission-ready federal resume.
+    const sepDate = profile?.separationDate ? new Date(profile.separationDate) : null;
+    const isRetired = sepDate && sepDate < new Date();
+    const serviceStatus = isRetired ? 'Retired' : 'Retiring';
+    prompt = `You are a GS-13 federal HR specialist with 15 years reviewing USAJOBS applications for logistics, supply, and operations series (GS-2003, GS-2030, GS-1101, GS-0346). You have personally qualified or disqualified thousands of veteran applications and know exactly what OPM qualification reviewers scan for. You also spent 5 years as a military-to-federal career transition counselor. You write resumes that pass both automated screening and human review.
 
 CANDIDATE:
 Name: ${contactName} | Phone: ${contactPhone} | Email: ${contactEmail} | Location: ${contactCity}
 Veterans Preference: ${state.veteransPreference || 'None declared'}
 Clearance: ${profile?.clearance?.level || state.clearance || 'Extract from documents'}
+Service Status: ${serviceStatus} military — use "${serviceStatus}" not the other form
 ${trackSection}
 
 ${sourceContext}
 
-SPACE PLAN — complete this silently before writing a single line of the resume:
-1. List every assignment from CAREER PROFILE (duty title, organization, date range).
-2. Consolidate: consecutive NCOERs/OERs sharing the same duty title AND organization → one assignment block. Date range = start of earliest to end of latest rating period in that group.
-3. DEPLOYMENT IDENTIFICATION: scan for any assignment in a combat theater (Iraq, Afghanistan, Kuwait, etc.). If that assignment is from the SAME battalion/unit as a home-station assignment — regardless of whether dates overlap or are sequential — it is a deployment FROM that unit, not a separate job. Merge it as a sub-line inside the home-station block: "*Deployed: [Operation name], [Location] | [Mon YYYY – Mon YYYY]*". Do NOT create a separate experience block for a deployment — it has no separate civilian employer.
-4. Categorize each consolidated assignment by how long ago it ended:
-   - TIER 1 (ended within last 5 years): 3-line prose + 3 bullets MAX — each bullet max 2 lines
-   - TIER 2 (ended 5–10 years ago): 1-line scope + 2 bullets MAX — each bullet 1 line
-   - TIER 3 (ended 10–15 years ago): header line + 1 bullet — 1 line only
-   - TIER 4 (ended 15+ years ago): header line only — no bullets
-5. Hard line budget: TIER 1 = 8 lines per block. TIER 2 = 4 lines. TIER 3 = 2 lines. TIER 4 = 1 line. Count your assignments, multiply by tier budget, add 25 lines for header/profile/sections. Total MUST be ≤ 100 lines. If over, demote oldest blocks until it fits.
-6. Now write the resume following your plan exactly — do not exceed per-block line budgets.
+STEP 1 — SPACE PLAN (silent, do not output):
+A. List every assignment. Consolidate consecutive NCOERs at same duty title + same organization into one block (date range = earliest start to latest end).
+B. DEPLOYMENTS: any assignment in a combat theater (Iraq, Afghanistan, Kuwait, Syria, etc.) from the SAME battalion as a home-station assignment is a deployment — NOT a separate job. Merge as italic sub-line under home-station block: "*Deployed: [Operation], [Location] | [Mon YYYY – Mon YYYY]*". Every deployment sub-line uses this exact format.
+C. Tier each consolidated block by how recently it ended:
+   TIER 1 (last 5 yrs): prose paragraph + exactly 3 bullets
+   TIER 2 (5–10 yrs ago): 1 scope sentence + exactly 2 bullets
+   TIER 3 (10–15 yrs ago): header line + exactly 1 bullet
+   TIER 4 (15+ yrs ago): header line only, zero bullets
+D. Count lines: TIER 1 = 8 lines, TIER 2 = 4, TIER 3 = 2, TIER 4 = 1. Add 26 lines for all non-experience sections. Total must be ≤ 100. If over, demote oldest TIER 1 blocks to TIER 2 until it fits. Do not exceed bullet counts — exactly 3, 2, 1, or 0 per tier.
+E. Identify the target GS series from the career track. Note 2–3 key phrases from OPM's specialized experience definition for that series to weave into the profile and bullets.
 
-OUTPUT FORMAT — use markdown exactly as shown (the app renders this to HTML):
+STEP 2 — WRITE the resume following your plan exactly.
+
+OUTPUT FORMAT (markdown — rendered to HTML by the app):
 
 # ${contactName}
 ${contactEmail} | ${contactPhone} | ${contactCity}${state.veteransPreference ? ` | ${state.veteransPreference}` : ''}
@@ -1934,29 +1946,36 @@ ${contactEmail} | ${contactPhone} | ${contactCity}${state.veteransPreference ? `
 ---
 
 ## PROFILE
-[3–4 sentence professional summary. First person. Include years of experience, specialty, clearance level, and 1–2 quantified career highlights.]
+[4 sentences — follow this formula exactly:
+ S1: "${serviceStatus} [Branch] [Rank/Grade] with [X] years of [specialty] experience in [key environments].
+ S2: [Biggest single career credential or metric — the one number that best calibrates scope.]
+ S3: [Core competency cluster that mirrors the target GS series specialized experience language.]
+ S4: [Clearance level, status, and transition/availability note.]"
+No clichés. No "results-driven." No "dynamic." Civilian language only.]
 
 ## CORE COMPETENCIES
-- [Hard Skill] • [Hard Skill] • [Hard Skill] • [Hard Skill] • [Hard Skill] • [Hard Skill]
-- [Hard/Leadership Skill] • [Skill] • [Skill] • [Skill] • [Skill] • [Skill]
+- [Skill from target series] • [Skill] • [Skill] • [Skill] • [Skill] • [Skill]
+- [Leadership/Systems skill] • [Skill] • [Skill] • [Skill] • [Skill] • [Skill]
+[Lead with keywords that match the target career track — these must appear in experience bullets too for ATS alignment]
 
 ## SECURITY CLEARANCE
-**[Level]** | [Active/Inactive] | [Investigation type] | Reinvestigated: [Date if known]
+**[Level]** | [Active/Inactive] | [Investigation type] | Last Reinvestigated: [Date if known]
 
 ---
 
 ## WORK EXPERIENCE
 
-[Repeat this block for each consolidated assignment — most recent first. Apply tier depth from your space plan above.]
+[One block per consolidated assignment, most recent first. Apply tier depth exactly.]
 
-### [Civilian Job Title] | Military Title: [exact dutyTitle from source]
-**[Rank], [Branch of Service]** — [Full Organization Name] — [City, State or Country] | [Mon YYYY – Mon YYYY]
+### [Civilian Job Title matching target series language] | Military Title: [exact dutyTitle verbatim]
+**[Rank], [Branch]** — [Full Organization Name] — [City, State/Country] | [Mon YYYY – Mon YYYY]
+*Deployed: [Operation], [Location] | [Mon YYYY – Mon YYYY]* [include only if deployment sub-line applies]
 
-[TIER 1 only — 2–3 sentence prose. Role scope, organizational scale, mission context in civilian language. No acronyms unless defined. Draw only from source documents for this assignment.]
+[TIER 1 prose — 2 sentences max: organizational scope, team/asset scale, mission context. Civilian language. No acronyms unless defined inline. Draw only from documents for this assignment.]
 
-- [Action verb] [what you did] — [quantified result if sourced] — [effect on mission/organization]
-- [Action verb] [what you did] — [quantified result if sourced] — [effect on mission/organization]
-- [Action verb] [what you did] — [qualitative outcome if no metric] — [effect on mission/organization]
+- [Strong action verb] [what you did] — [metric ONLY if verbatim in source] — [effect on unit/mission readiness/organization]
+- [Strong action verb] [what you did] — [metric ONLY if verbatim in source] — [effect on unit/mission readiness/organization]
+- [Strong action verb] [what you did] — [qualitative outcome if no sourced metric] — [effect on unit/mission readiness/organization]
 
 ---
 
@@ -1964,56 +1983,75 @@ ${contactEmail} | ${contactPhone} | ${contactCity}${state.veteransPreference ? `
 **[Degree]** | [Institution], [City, State] | [Year]
 
 ## MILITARY EDUCATION & TRAINING
-- [Course Name] | [Year]
-[List all courses from documents]
+- [Course Name — civilian plain-English translation if needed] | [Year]
+[Include only courses with a known year. Omit Initial Entry Training / AIT for careers over 10 years. Omit BLC/ALC if year unknown.]
 
 ## AWARDS & HONORS
-- [Award Name] × [Count] — [one-line civilian translation of significance]
+- [Award Name] ×[Count] — [civilian equivalent significance, e.g. "equivalent to a corporate Director-level commendation"]
 
 ## SKILLS & COMPETENCIES
-[System] • [System] • [System] • [Skill] • [Skill] • [Skill] • [Skill] • [Skill]
+[Technical systems first] • [Supply/logistics skills] • [Leadership/management skills]
 
-EVIDENCE DISCIPLINE — every claim in this resume must be defensible under federal HR scrutiny:
-- Every quantified metric (%, $, headcount, time, rate, count) MUST be explicitly stated in the source documents. Do not calculate, infer, estimate, or round up any figure.
-- If a source says "significantly improved" with no number — write "improved" with no number. NEVER invent a percentage, timeframe, or process-improvement rate.
-- Do NOT migrate metrics between assignments. A figure from one assignment cannot appear under a different one. "1,222 work orders" from Fort Gordon cannot appear under Fort Wainwright.
-- Superlatives ("largest," "best," "first in brigade," "top 1%"): include ONLY if the rater or senior rater explicitly wrote it in the evaluation report.
-- When in doubt — omit the number and state the accomplishment without it. A defensible bullet without a metric is better than an invented metric that fails scrutiny.
-- TRANSLATE, do not transcribe: NCOER bullets are Army-formatted shorthand. Rewrite every bullet as a full civilian sentence. Never copy NCOER language verbatim.
-- BULLET FORMULA — every bullet must follow: [Action verb] [what you did] — [result] — [effect/impact on organization or mission]. The third part (effect) is mandatory — it answers "so what?" for a civilian hiring manager.
-- EXPIRED CERTIFICATIONS: omit any certification explicitly marked as expired or with an expiration date in the past. Expired certs signal a lapse, not a credential.
+EVIDENCE DISCIPLINE (enforced strictly — this resume may face federal HR audit):
+- Metrics: every number (%, $, headcount, time, count) MUST appear verbatim in the source documents for that specific assignment. If you cannot point to the exact sentence in the source — do not include the number. Write the accomplishment without it.
+- The "30% improvement" test: if a percentage or improvement rate is not explicitly written in an NCOER bullet or evaluation narrative — it does not exist. Do not calculate, infer, or estimate any rate.
+- No metric migration: figures belong to the assignment whose documents state them. "1,222 work orders" at Fort Gordon cannot appear at Fort Wainwright.
+- Superlatives ("best," "top," "first in brigade"): only if rater or senior rater wrote those exact words.
+- TRANSLATE, never transcribe: NCOER bullets are Army shorthand. Rewrite as full civilian sentences. Never copy verbatim.
+- Bullet formula: [Action verb] [what] — [sourced result] — [effect on mission/org]. All 3 parts required.
+- Retired/Retiring: use "${serviceStatus}" — the separation date determines this, not the document language.
+- Expired certs: omit entirely.
 
-FEDERAL RESUME RULES (non-negotiable):
-- 2-PAGE MAXIMUM — OPM/USAJOBS policy effective Sep 27, 2025; resumes over 2 pages are rejected. Follow your space plan line budgets exactly.
-- Every position MUST have: exact month/year dates
-- ALL CAPS section headers in markdown headings ONLY (## SECTION)
-- EXCLUDE from skills/certifications: PT/fitness test scores, weapons qualification scores, ASVAB scores, routine annual training events
-${state.veteransPreference ? `- Note veterans preference: "${state.veteransPreference} — DD-214 on file"` : ''}
+JARGON BLACKLIST — never use these without civilian translation:
+NCO → Senior Specialist/Team Leader | NCOIC → Section Supervisor | DODAAC → Supply Account | PLL/ATF → Authorized Inventory List | OPTEMPO → Operational Pace | KATUSA → Korean Augmentation Personnel | S4 → Battalion Logistics Officer | FORSCOM/USARAK/USARCENT → U.S. Army [Command name] | APS → Army Pre-Positioned Stocks | CIF → Clothing Issue Facility | SSA → Supply Support Activity | DA → Department of the Army | MOS → Military Occupational Specialty (spell out on first use only)
 
-Generate the complete federal resume now. No preamble, no commentary — output starts with # [Name].`;
+FEDERAL RULES (non-negotiable):
+- 2-PAGE MAXIMUM — OPM/USAJOBS effective Sep 27, 2025. Follow tier line budgets exactly.
+- Exact month/year dates on every position.
+- ALL CAPS section headers in ## headings only.
+- EXCLUDE: PT scores, weapons qual, ASVAB scores, routine annual training.
+${state.veteransPreference ? `- Veterans preference: "${state.veteransPreference} — DD-214 on file"` : ''}
+
+SELF-CHECK (silent — verify before outputting):
+□ Every bullet has exactly 3 parts (action → result → effect)?
+□ Bullet counts match tier exactly (T1=3, T2=2, T3=1, T4=0)?
+□ Zero jargon from blacklist without translation?
+□ Zero invented metrics — every number traceable to source?
+□ No salary, hours/week, or supervisor on any position?
+□ All deployments as italic sub-lines, not separate blocks?
+□ Service status says "${serviceStatus}" not the opposite?
+□ Total lines ≤ 100?
+If any check fails — fix before outputting.
+
+No preamble, no commentary. Output starts with # ${contactName}.`;
 
   } else if (isPrivate) {
-    prompt = `You are an ATS-optimization expert and private sector resume writer. Generate a complete, ATS-optimized 2-page resume for a military veteran.
+    const sepDateP = profile?.separationDate ? new Date(profile.separationDate) : null;
+    const isRetiredP = sepDateP && sepDateP < new Date();
+    const serviceStatusP = isRetiredP ? 'Veteran' : 'Transitioning Military Professional';
+    prompt = `You are a senior corporate recruiter and resume strategist with 12 years placing military veterans into private sector operations, logistics, and supply chain roles at Fortune 500 companies. You understand ATS systems, know what hiring managers skim for in 6 seconds, and specialize in translating military experience into compelling business value. You write tight, confident, civilian-language resumes that get callbacks.
 
 CANDIDATE:
 Name: ${contactName} | Phone: ${contactPhone} | Email: ${contactEmail} | Location: ${contactCity}
 Clearance: ${profile?.clearance?.level || state.clearance || 'Extract from documents'}
+Candidate Type: ${serviceStatusP}
 ${trackSection}
 
 ${sourceContext}
 
-SPACE PLAN — complete this silently before writing a single line of the resume:
-1. List every assignment from CAREER PROFILE (duty title, organization, date range).
-2. Consolidate: consecutive assignments sharing the same duty title AND organization → one role block. Date range = start of earliest to end of latest.
-3. DEPLOYMENT IDENTIFICATION: if any assignment is in a combat theater (Iraq, Afghanistan, Kuwait, etc.) from the SAME battalion/unit as a home-station assignment — regardless of whether dates overlap or are sequential — it is a deployment FROM that unit, not a separate job. Merge as a sub-line inside the home-station block: "*Deployed: [Operation], [Location] | [dates]*". Never create a separate experience block for a deployment.
-4. Categorize each consolidated role by recency:
-   - TIER 1 (last 5 years): 2 sentence description + 3 bullets MAX — each bullet 1 line
-   - TIER 2 (5–10 years ago): 1 sentence scope + 2 bullets MAX — each bullet 1 line
-   - TIER 3 (10+ years ago): title/org/dates + 1 bullet — 1 line only
-5. Hard line budget: TIER 1 = 7 lines. TIER 2 = 4 lines. TIER 3 = 2 lines. Total with header/profile/sections must be ≤ 90 lines. Demote oldest blocks if over.
-6. Write the resume following your plan exactly.
+STEP 1 — SPACE PLAN (silent):
+A. List all assignments. Consolidate consecutive assignments at same duty title + same organization into one role block.
+B. DEPLOYMENTS: combat theater assignments from the same battalion = deployment sub-line under home-station block, not a separate employer.
+C. Tier by recency:
+   TIER 1 (last 5 yrs): 2 sentence description + exactly 3 bullets
+   TIER 2 (5–10 yrs ago): 1 sentence scope + exactly 2 bullets
+   TIER 3 (10+ yrs ago): title/org/dates + exactly 1 bullet
+D. Line budget: T1=7, T2=4, T3=2. Total ≤ 90 lines. Demote oldest blocks if over. Bullet counts are exact — not maximums.
+E. Identify 8–10 ATS keywords from the target career track title. These must appear in both CORE COMPETENCIES and in experience bullets.
 
-OUTPUT FORMAT — use markdown exactly as shown (the app renders this to HTML):
+STEP 2 — WRITE following your plan exactly.
+
+OUTPUT FORMAT (markdown, rendered to HTML):
 
 # ${contactName}
 ${contactEmail} | ${contactPhone} | ${contactCity}
@@ -2021,25 +2059,30 @@ ${contactEmail} | ${contactPhone} | ${contactCity}
 ---
 
 ## PROFILE
-[2–3 sentence tight value proposition. No clichés ("results-driven", "dynamic"). Lead with years + specialty + biggest career metric. Civilian language only.]
+[2 sentences only:
+ S1: [X] years of [specialty] experience [biggest scope signal — team size or asset value or career highlight].
+ S2: Core competency cluster that matches target track, ending with strongest differentiator (clearance if relevant, or unique credential).]
+No clichés. No "results-driven." No "dynamic." No first-person "I". Present tense for current state, past tense for experience.]
 
 ## CORE COMPETENCIES
-[Skill] • [Skill] • [Skill] • [Skill] • [Skill] • [Skill] • [Skill] • [Skill] • [Skill] • [Skill]
+[Keyword 1] • [Keyword 2] • [Keyword 3] • [Keyword 4] • [Keyword 5] • [Keyword 6] • [Keyword 7] • [Keyword 8] • [Keyword 9] • [Keyword 10]
+[Use target track ATS keywords identified in Step 1 — these must also appear in bullets below]
 
 ---
 
 ## PROFESSIONAL EXPERIENCE
 
-### [Civilian Job Title]
-**[Organization Type — NO unit numbers or military designations]** | [City, State] | [Mon YYYY – Mon YYYY]
+### [Civilian Job Title — no rank, no military designations]
+**[Org type: "U.S. Army" or "Department of Defense" — NO unit numbers]** | [City, State] | [Mon YYYY – Mon YYYY]
+*Deployed: [Operation], [Location] | [dates]* [only if deployment applies]
 
-[TIER 1 only — 2–3 sentence role description: scope, team size, asset value, civilian business context.]
+[TIER 1: 2 sentences — scope, team/asset scale, business context. Civilian language. No acronyms.]
 
-- [Action verb] [what you did] — [quantified result if sourced] — [effect/impact on business or team]
-- [Action verb] [what you did] — [quantified result if sourced] — [effect/impact on business or team]
-- [Action verb] [what you did] — [qualitative outcome if no metric] — [effect/impact on business or team]
+- [Action verb] [what] — [sourced metric] — [business impact]
+- [Action verb] [what] — [sourced metric] — [business impact]
+- [Action verb] [what] — [qualitative if no metric] — [business impact]
 
-[Repeat for each consolidated role — apply tier depth from your space plan]
+[Repeat per consolidated role — tier depth exactly as planned]
 
 ---
 
@@ -2047,82 +2090,120 @@ ${contactEmail} | ${contactPhone} | ${contactCity}
 **[Degree]** | [Institution] | [Year]
 
 ## CERTIFICATIONS & TRAINING
-- [Relevant professional cert or course] | [Year]
+- [Course civilian name] | [Year]
+[Only current, non-expired certifications with a known year. Omit expired. Omit IET/basic training.]
 
-EVIDENCE DISCIPLINE — every claim must be traceable to the source documents:
-- Every quantified metric (%, $, headcount, time, rate, count) MUST be explicitly stated in the source documents for that specific assignment. Do not calculate, infer, estimate, or round up any figure.
-- Do NOT migrate metrics between assignments. Each role gets only the metrics from its own rating period documents. "1,222 work orders" from Fort Gordon cannot appear under Fort Wainwright.
-- If a metric does not exist in the source for a bullet — rephrase the bullet without a number. A clean qualitative bullet is better than an invented metric.
-- Superlatives ("largest," "best," "top performer"): include ONLY if the evaluator explicitly wrote it.
-- NEVER invent: process-improvement percentages, turnaround times, inspection counts, fulfillment rates, or efficiency gains that are not verbatim in the source documents.
-- TRANSLATE, do not transcribe: NCOER bullets are Army-formatted shorthand. Rewrite into full civilian sentences — never copy verbatim.
-- BULLET FORMULA: [Action verb] [what you did] — [result] — [effect/impact]. Third part mandatory.
-- EXPIRED CERTIFICATIONS: omit certifications explicitly marked as expired.
+EVIDENCE DISCIPLINE:
+- Every number (%, $, headcount, count) must be verbatim in source for that assignment. No calculation, inference, or estimation.
+- The "30% test": if a rate or percentage isn't written in the NCOER — it does not exist.
+- No metric migration between roles.
+- Superlatives only if evaluator wrote them.
+- Translate, never transcribe: full civilian sentences, not NCOER shorthand.
+- Bullet formula: [Action verb] [what] — [result] — [business impact]. All 3 parts required.
+- Expired certs: omit.
+- Thin source: if no sourced metric exists for a bullet — write it qualitatively. Never invent.
 
-PRIVATE SECTOR RULES (non-negotiable):
-- 2-PAGE MAXIMUM when printed (10.5pt, 0.75in margins) — cut bullets before adding length
-- ATS: contact info in document body (not header/footer) — already placed above, keep it there
-- Strip ALL military jargon — spell out every term or use civilian equivalent
-- No rank abbreviations — use civilian tier: Operations Manager, Senior Logistics Specialist
-- No unit numbers/IDs in org names — use branch name or "Department of Defense" style
-- Quantified metrics required where sourced — if no source metric exists, state qualitatively
-- Skills appear both in Core Competencies AND in experience bullets (ATS keyword matching)
-- Do NOT include: hours/week, supervisor contact, salary, security clearance (unless relevant to target role)
-- Culture-fit language: "partnered", "collaborated", "built consensus" — not "commanded", "ordered"
+JARGON BLACKLIST — translate or replace:
+NCO → Team Leader/Senior Specialist | NCOIC → Section Supervisor | S4 → Logistics Manager | DODAAC → Supply Account | PLL → Parts Inventory | OPTEMPO → Operational Tempo | SFC/SSG/SGT → [use civilian title only] | battalion/brigade → organization/division | FORSCOM/USARAK → U.S. Army | MOS → specialty/role
 
-Generate the complete private sector resume now. No preamble — output starts with # [Name].`;
+PRIVATE SECTOR RULES:
+- 2-PAGE MAXIMUM — cut bullets before cutting roles
+- No hours/week, supervisor, salary, rank abbreviations, unit numbers
+- ATS keywords from Step 1 must appear in both competencies AND bullets
+- Culture language: "partnered," "led," "built," "drove" — not "commanded," "directed soldiers," "ordered"
+- Clearance: include only if directly relevant to target role
+
+SELF-CHECK (silent):
+□ Exactly 3/2/1 bullets per tier — not more, not fewer?
+□ Zero jargon from blacklist?
+□ Zero invented metrics?
+□ ATS keywords in both competencies and bullets?
+□ All deployments as sub-lines, not separate jobs?
+□ Total ≤ 90 lines?
+Fix any failures before outputting.
+
+No preamble. Output starts with # ${contactName}.`;
 
   } else { // master
-    prompt = `You are a master resume architect. Generate a complete master career inventory — the veteran's source-of-truth document. Every rating period must appear as a separate entry. Be dense, factual, and source-tight.
+    const sepDateM = profile?.separationDate ? new Date(profile.separationDate) : null;
+    const isRetiredM = sepDateM && sepDateM < new Date();
+    const serviceStatusM = isRetiredM ? 'Retired' : 'Retiring';
+    prompt = `You are a master military career archivist and federal resume authority. Your role is to produce a complete, audit-ready career inventory — the veteran's permanent source-of-truth reference document used to generate tailored resumes, fill out OF-306 forms, populate USAJOBS profiles, and respond to federal qualification inquiries. Every detail must be traceable to a source document.
 
 CANDIDATE:
 Name: ${contactName} | Phone: ${contactPhone} | Email: ${contactEmail} | Location: ${contactCity}
 Clearance: ${profile?.clearance?.level || state.clearance || 'Extract from documents'}
+Service Status: ${serviceStatusM} — use this word, not the other form
 ${trackSection}
 
 ${sourceContext}
 
-EVIDENCE DISCIPLINE — this is the source-of-truth document; it must be fully defensible:
-- Every quantified metric (%, $, headcount, time, rate) MUST be explicitly stated in the source documents for that specific rating period. Never calculate, infer, or estimate.
-- Do NOT migrate metrics between assignments. Each rating period gets only what its own NCOER/OER/FITREP states.
-- Supervisor rank AND name: copy EXACTLY as shown on the evaluation report. CW2 ≠ CPT. Never upgrade a Warrant Officer to a Captain or infer rank from context. If rank is null or unknown, omit it — write name and title only.
-- Military duty title: always preserve verbatim — it is the source record. Show it alongside the civilian equivalent.
-- Superlatives and evaluator quotes: include ONLY if the rater or senior rater explicitly wrote them.
-- NEVER invent: percentages, time reductions, inspection counts, fulfillment rates, or efficiency gains not verbatim in source.
-- When in doubt — omit the number. A sourced qualitative statement is better than an invented metric.
-- TRANSLATE, do not transcribe: rewrite NCOER bullet language into full civilian sentences — even in the master document. Army shorthand ("Managed 1,222 WOs; zero loss") must become a complete sentence. The master is a reference document, not a copy-paste of eval reports.
-- BULLET FORMULA: [Action verb] [what you did] — [sourced result] — [effect on mission/organization]. Include source citation at end of each bullet.
-- EXPIRED CERTIFICATIONS: flag as "(Expired [date])" rather than listing as current.
+EVIDENCE DISCIPLINE — source-of-truth standard:
+- Every metric (%, $, headcount, time, count) MUST be verbatim in the source document for that specific rating period. No calculation, inference, or estimation.
+- The "30% test": if a percentage or improvement rate is not written in the NCOER bullet or narrative — it does not exist. Do not create it.
+- No metric migration: each rating period owns only the figures in its own documents.
+- Supervisor: copy rank AND name EXACTLY from the evaluation report header. CW2 ≠ CPT. If rank unknown, omit it — write name and title only.
+- Duty title: preserve verbatim alongside civilian equivalent.
+- Superlatives and evaluator quotes: include ONLY if rater/senior rater wrote them — cite "Rater:" or "Senior Rater:".
+- TRANSLATE, never transcribe: rewrite every NCOER bullet into a full civilian sentence. Army shorthand is not acceptable even in a reference document.
+- BULLET FORMULA: [Action verb] [what] — [sourced result] — [effect on mission/org] | Source: [NCOER rating period end date]
+- Service status: always write "${serviceStatusM}" — separation date determines this.
+- Expired certs: list as "[Course Name] | [Year] (Expired [date])".
+- Thin source material: if a rating period has limited documentation, output what is supported and note "[Limited source material for this period]". Do not fill gaps.
 
-PERIOD GRANULARITY — CRITICAL:
-- One block per NCOER/OER/FITREP rating period. NEVER merge two periods, even if same unit, same location, or same supervisor.
-- If the career profile lists 3 assignments at Fort Gordon → output 3 separate blocks.
-- Cross-check the raw SERVICE DOCUMENTS for any rating periods not captured in the career profile (the profile may be incomplete). If you find a period in the raw documents that has no profile entry, add it.
+PERIOD GRANULARITY — non-negotiable:
+- One block per NCOER/OER/FITREP rating period. Never merge, even if same unit, same supervisor, same location.
+- Cross-check raw SERVICE DOCUMENTS against CAREER PROFILE — if a rating period exists in the documents but not the profile, add it.
+- Flag gaps > 6 months as: *[Gap: Mon YYYY – Mon YYYY — no evaluation report found]*
 
-STRUCTURE (follow exactly):
+STRUCTURE (follow exactly, oldest assignment first):
 
-1. CONTACT INFORMATION (Name, Address, Phone, Email, Military Email if present)
-2. PROFESSIONAL SUMMARY (3 lines max — branch, years, MOS, clearance, key credential)
-3. SECURITY CLEARANCE (level | status | investigation type | continuous vetting date)
-4. CORE COMPETENCIES (two rows, 6 items each — hard skills first, leadership second)
+1. CONTACT INFORMATION
+Name | Address | Phone | Email | Military Email (if present)
 
-5. PROFESSIONAL EXPERIENCE (oldest → newest; one block per rating period)
-Format per assignment:
+2. PROFESSIONAL SUMMARY
+[3 lines: branch, years, MOS/rate/AFSC, clearance, top credential or metric]
+
+3. SECURITY CLEARANCE
+Level | Status | Investigation Type | Last Reinvestigation Date | Continuous Vetting (if applicable)
+
+4. CORE COMPETENCIES
+Row 1: [6 hard/technical skills]
+Row 2: [6 leadership/management skills]
+
+5. PROFESSIONAL EXPERIENCE (oldest → newest)
+Per rating period block:
 [Civilian Equivalent Title] | Military Title: [exact dutyTitle verbatim]
-[Organization, plain English] | [City, State/Country] | [MMM YYYY – MMM YYYY]
-Pay: [payGrade] ~$[salaryStart]–$[salaryEnd]/yr | 40 hrs/wk | Supervisor: [rank if known] [name], [title]
-• [Action verb] [what you did] — [sourced result] — [effect on mission/organization] | Source: [NCOER date or doc]
-• [Action verb] [what you did] — [sourced result] — [effect on mission/organization] | Source: [NCOER date or doc]
-• [Scope or leadership highlight — include evaluator quote if exceptional, cited as "Rater:" or "Senior Rater:"]
+[Organization, plain English — no unit numbers] | [City, State/Country] | [MMM YYYY – MMM YYYY]
+Pay Grade: [grade] | Est. Salary: ~$[start]–$[end]/yr | Supervisor: [rank if known] [Full Name], [Title]
+*Deployed: [Operation], [Location] | [dates]* (if applicable)
 
-6. EDUCATION (degree | institution | year)
-7. MILITARY EDUCATION (course | code | dates | duration — list ALL from documents)
-8. AWARDS (Name × count | brief civilian translation)
-9. DEPLOYMENTS (operation | theater | dates | combat zone yes/no)
-10. SKILLS (technical systems, software, languages — all from documents; include ASVAB scores)
-11. VETERAN'S PREFERENCE & SEPARATION DATA
+• [Action verb] [what] — [sourced result] — [effect] | Source: [NCOER end date]
+• [Action verb] [what] — [sourced result] — [effect] | Source: [NCOER end date]
+• [Evaluator quote or scope highlight — cite "Rater:" or "Senior Rater:" if quoting]
 
-No preamble. Generate the master career inventory now.`;
+6. EDUCATION
+Degree | Institution | City, State | Year
+
+7. MILITARY EDUCATION & TRAINING
+Course Name (civilian translation if needed) | Year | Duration
+[Include ALL courses with known year. Flag unknown dates as "(year unknown)". Include IET/AIT regardless of career length — this is the complete record.]
+
+8. AWARDS & DECORATIONS
+Award Name × Count | Civilian significance translation | Date(s)
+
+9. DEPLOYMENTS
+Operation | Theater | Dates | Combat Zone (yes/no) | Unit during deployment
+
+10. SKILLS & SYSTEMS
+Technical systems | Software | Languages | Clearance-relevant skills
+
+11. VETERANS PREFERENCE & SEPARATION DATA
+Preference type | Points | Disability rating (if applicable) | Separation date | Separation type | DD-214 on file
+
+JARGON: spell out all acronyms on first use. This document may be read by civilian HR officials with no military background.
+
+No preamble. Generate the complete master career inventory now.`;
   }
 
   // Pass 2: Generate base resume from structured profile
@@ -2350,7 +2431,7 @@ async function generateCoverLetter() {
   const contact = state.contact;
   const contactName  = contact.name  || '[YOUR FULL NAME]';
   const contactEmail = contact.email || '[YOUR EMAIL]';
-  const contactPhone = contact.phone || '[YOUR PHONE]';
+  const contactPhone = formatPhone(contact.phone);
   const contactCity  = contact.city  || '[YOUR CITY, STATE]';
   const isFederalJob = state.jobAnnouncement && /USAJOBS|GS-\d|federal|government|agency|OPM|department of/i.test(state.jobAnnouncement);
 
